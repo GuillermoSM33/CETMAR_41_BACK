@@ -30,6 +30,28 @@ Now you can see the project in your path
 
 ---
 
+# Create and Activate Virtual Environment
+
+```
+python -m venv .venv
+```
+
+Activate it:
+
+Windows PowerShell
+
+```
+.venv\Scripts\Activate.ps1
+```
+
+Linux/Mac
+
+```
+source .venv/bin/activate
+```
+
+--
+
 # How to install the project requirements?
 
 ```
