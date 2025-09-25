@@ -50,7 +50,7 @@ Linux/Mac
 source .venv/bin/activate
 ```
 
---
+---
 
 # How to install the project requirements?
 
