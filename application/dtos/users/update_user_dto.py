@@ -4,10 +4,10 @@ from pydantic import BaseModel
 
 class UpdateUserDTO(BaseModel):
     Id: int
-    User_name: str
-    User_email: str
+    User_Name: str
+    User_Email: str
     FK_Rol_ID: int
-    Telephone: str
+    Telephone: int
     FK_Identity_ID: int
 
     class Config:

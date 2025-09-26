@@ -21,27 +21,35 @@ def seed_data():
         session.commit()
 
         # --- Identidades ---
-        identity1 = IdentityModel(Student_Identity=1001, Teacher_Identity=None)
-        identity2 = IdentityModel(Student_Identity=None, Teacher_Identity=2001)
-        session.add_all([identity1, identity2])
+        identity1 = IdentityModel(Student_Identity=None, Teacher_Identity=0, Management_Admin_Identity=1, Schedule="morning")
+        identity2 = IdentityModel(Student_Identity=None, Teacher_Identity=2001, Management_Admin_Identity=0, Schedule="evening")
+        identity3 = IdentityModel(Student_Identity=22393204, Teacher_Identity=None, Management_Admin_Identity=0, Schedule="evening", Major="Ingeniería en desarrollo biomédico")
+        session.add_all([identity1, identity2, identity3])
         session.commit()
 
         # --- Usuarios ---
         user1 = UserModel(
-            User_Name="Guillermo",
-            User_Email="guillermo@example.com",
+            User_Name="Guillermo Garcia Canul",
+            User_Email="guillermo.jesus.garcia.canul@gmail.com",
             FK_Rol_ID=admin_role.Id,
             Telephone=9983187269,
             FK_Identity_ID=identity1.Id
         )
         user2 = UserModel(
             User_Name="Alisson",
-            User_Email="alisson@example.com",
+            User_Email="alisson@gmail.com",
             FK_Rol_ID=teacher_role.Id,
             Telephone=9983187269,
             FK_Identity_ID=identity2.Id
         )
-        session.add_all([user1, user2])
+        user3 = UserModel(
+            User_Name="Aysha Medina Garcia",
+            User_Email="aysha_medina_garcia@gmail.com",
+            FK_Rol_ID=student_role.Id,
+            Telephone=9983187269,
+            FK_Identity_ID=identity3.Id
+        )
+        session.add_all([user1, user2, user3])
         session.commit()
 
         # --- Tokens ---
