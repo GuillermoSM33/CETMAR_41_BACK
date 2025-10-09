@@ -1,27 +1,47 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from jose import jwt
+from sqlalchemy import or_
 from infrastructure.persistence.models.user_model import UserModel
 from infrastructure.persistence.models.auth_model import AuthModel
-from application.services.auth_utils import verify_password, create_access_token
-from infrastructure.config.settings import settings
-from sqlalchemy import or_
 from infrastructure.persistence.models.identity_model import IdentityModel
+from application.services.auth_utils import verify_password, create_access_token
+
 
 class AuthService:
     @staticmethod
     def login(identifier: str, password: str, db: Session):
-        # Buscar usuario por correo o matrícula
+        # Detectar tipo de identifier, para que sea int (matricula) o str (email)
+        identifier_email = None
+        identifier_student = None
+        identifier_teacher = None
+
+        if "@" in identifier:
+            identifier_email = identifier
+        else:
+            try:
+                identifier_int = int(identifier)
+                identifier_student = identifier_int
+                identifier_teacher = identifier_int
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Identificador inválido. Debe ser correo o matrícula numérica."
+                )
+
+        # Construir filtros solo con los valores válidos, verificando que exista alguno
+        filters = []
+        if identifier_email:
+            filters.append(UserModel.User_Email == identifier_email)
+        if identifier_student:
+            filters.append(IdentityModel.Student_Identity == identifier_student)
+        if identifier_teacher:
+            filters.append(IdentityModel.Teacher_Identity == identifier_teacher)
+
         user = (
             db.query(UserModel)
             .join(IdentityModel, UserModel.FK_Identity_ID == IdentityModel.Id, isouter=True)
-            .filter(
-                or_(
-                    UserModel.User_Email == identifier,
-                    IdentityModel.Student_Identity == identifier,
-                    IdentityModel.Teacher_Identity == identifier
-                )
-            )
+            .filter(or_(*filters))
             .first()
         )
 
@@ -31,7 +51,7 @@ class AuthService:
                 detail="Usuario no encontrado."
             )
 
-        # Buscar hash
+        
         auth = db.query(AuthModel).filter_by(FK_User_ID=user.Id).first()
         if not auth or not verify_password(password, auth.Hashed_Password):
             raise HTTPException(
@@ -39,12 +59,19 @@ class AuthService:
                 detail="Credenciales inválidas."
             )
 
-        # Generar token JWT
+        # Obtener rol del usuario
+        role_name = user.role.Role_Name if user.role else None
+
+        # Obtener identifier (de alumno o docente)
+        matricula = None
+        if user.identity:
+            matricula = user.identity.Student_Identity or user.identity.Teacher_Identity
+
         payload = {
             "sub": str(user.Id),
-            "rol": user.role.Role_Name,
+            "rol": role_name,
             "email": user.User_Email,
-            "matricula": user.identity.student_identity or user.identity.teacher_identity
+            "matricula": matricula
         }
 
         token = create_access_token(payload)
