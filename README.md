@@ -124,3 +124,99 @@ Then open http://localhost:8000
 Use Alembic for schema changes (never edit the database manually).
 
 Use seeds only in development. Production environments should only insert catalog data (like roles) through migrations.
+
+---
+
+# Contributions
+
+Would you like to contribute? First, you should learn the basic structure for making better commits and improving workflow.
+
+Please read the next part for learn how work in your own branch :D
+
+---
+
+# Branches
+
+Every new feature, bug fix, or improvement must be created in a new branch.
+The branch naming convention is:
+
+Type_Module_Description
+
+Common types:
+
+1- Feature_ → New functionality
+
+2- Fix_ or Hotfix_ → Bug fixes
+
+3- Refactor_ → Code improvements without adding features
+
+4- Docs_ → Documentation changes
+
+Examples:
+Feature_Auth_Base
+Feature_Auth_JWT
+Feature_Grades_CRUD
+Hotfix_Login_Bug
+Refactor_UserService
+
+---
+
+# Commits
+
+Commits must follow this structure:
+
+TYPE(MODULE): Short description of the change
+
+Types of commits:
+
+1- FEAT → New features
+
+2- FIX → Bug fixes
+
+3- REFACTOR → Code improvements
+
+4- DOCS → Documentation changes
+
+Examples:
+
+FEAT(AUTH): Added base authentication with SQLAlchemy
+FEAT(AUTH): Implemented JWT for login
+FIX(AUTH): Fixed bug in password validation
+REFACTOR(GRADES): Extracted business logic from controller
+DOCS(README): Added environment variables example
+
+---
+
+# Workflow Example
+
+Create a new branch from main:
+
+```
+git checkout main
+git pull origin main
+git checkout -b Feature_Auth_JWT
+```
+
+Make your changes, then stage files:
+
+```
+git add .
+```
+
+Commit with a clear message:
+
+```
+git commit -m "FEAT(AUTH): Implemented JWT for login"
+```
+
+Push your branch:
+
+```
+git push origin Feature_Auth_JWT
+```
+
+---
+
+# Main Branches
+
+Open a Pull Request (PR) to merge into main branches.
