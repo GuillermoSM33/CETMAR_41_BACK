@@ -5,3 +5,4 @@ from .role_model import RoleModel
 from .identity_model import IdentityModel
 from .calification_model import CalificationModel
 from .token_model import TokenModel
+from .auth_model import AuthModel
