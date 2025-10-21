@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from presentation.api.v1.routers import user_controller
 from presentation.api.v1.routers import auth_controller
 from presentation.api.v1.routers import student_controller
+
 from presentation.api.v1.routers import report_card_controller
 
 app = FastAPI(swagger_ui_parameters={"syntaxHighlight": False})
