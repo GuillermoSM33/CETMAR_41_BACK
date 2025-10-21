@@ -5,7 +5,7 @@ from sqlalchemy import or_
 from infrastructure.persistence.models.user_model import UserModel
 from infrastructure.persistence.models.auth_model import AuthModel
 from infrastructure.persistence.models.identity_model import IdentityModel
-from application.services.auth_utils import verify_password, create_access_token
+from application.utils.auth_utils import verify_password, create_access_token
 
 
 class AuthService:
