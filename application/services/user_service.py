@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from infrastructure.persistence.models.user_model import UserModel
 from application.dtos.users.update_user_dto import UpdateUserDTO
+from infrastructure.persistence.repositories.user_repository import get_user_count
 from typing import List
 
 def get_all_users_service(db: Session) -> List[UserModel]:
@@ -20,3 +21,8 @@ def update_user_service(db: Session, user_id: int, user_data: UpdateUserDTO) -> 
     db.commit()
     db.refresh(user)
     return user
+
+
+def count_users_service(db):
+    """Lógica de negocio para contar usuarios"""
+    return get_user_count(db)

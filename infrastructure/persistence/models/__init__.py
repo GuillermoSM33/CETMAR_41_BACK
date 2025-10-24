@@ -6,3 +6,7 @@ from .identity_model import IdentityModel
 from .calification_model import CalificationModel
 from .token_model import TokenModel
 from .auth_model import AuthModel
+from .uac_model import UACModel
+from .report_card_model import ReportCardModel
+from .report_card_item_model import ReportCardItemModel
+from .report_card_raw_model import ReportCardRawModel
