@@ -6,6 +6,7 @@ from infrastructure.persistence.models.user_model import UserModel
 from infrastructure.persistence.models.auth_model import AuthModel
 from infrastructure.persistence.models.identity_model import IdentityModel
 from application.utils.auth_utils import verify_password, create_access_token
+import bcrypt
 
 
 class AuthService:
@@ -77,3 +78,35 @@ class AuthService:
         token = create_access_token(payload)
 
         return {"access_token": token, "token_type": "bearer"}
+
+    @staticmethod
+    def admin_reset_password(admin_user: dict, target_user_id: int, new_password: str, db: Session, force_reset: bool = False):
+        """
+        Resetea la contraseña de un usuario (endpoint administrativo).
+        - admin_user: dict con la información del usuario que solicita (ej. payload del JWT).
+        - target_user_id: id del usuario objetivo.
+        - new_password: nueva contraseña en texto plano.
+        - db: Session de SQLAlchemy.
+        """
+        role = (admin_user.get("rol") or admin_user.get("role_name") or "").lower()
+        if role not in ("admin", "director", "management_admin"):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No autorizado para cambiar contraseñas.")
+
+        user = db.query(UserModel).filter(UserModel.Id == target_user_id).first()
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado.")
+
+        if len(new_password.strip()) < 6 or " " in new_password:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Contraseña inválida. Debe tener al menos 6 caracteres y no contener espacios.")
+
+        hashed_pw = bcrypt.hashpw(new_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+        auth = db.query(AuthModel).filter(AuthModel.FK_User_ID == user.Id).first()
+        if auth:
+            auth.Hashed_Password = hashed_pw
+        else:
+            auth = AuthModel(FK_User_ID=user.Id, Hashed_Password=hashed_pw)
+            db.add(auth)
+
+        db.commit()
+        return {"detail": f"Contraseña del usuario {user.User_Name} actualizada correctamente."}
