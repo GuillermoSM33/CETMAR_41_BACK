@@ -1,0 +1,72 @@
+```mermaid
+erDiagram
+    ROLES {
+        Integer Id PK
+        string Role_Name
+    }
+    USERS {
+        Integer Id PK
+        string User_Name
+        string User_Email
+        Integer FK_Rol_ID
+        BigInteger Telephone
+        Integer FK_Identity_ID
+    }
+    PASSWORDS {
+        Integer Id PK
+        Integer FK_User_ID
+        string Hashed_Password
+    }
+    TOKENS {
+        Integer Id PK
+        string Token
+        Boolean InBlackList
+        Integer FK_User_ID
+        Date Date_Expiration_Time
+    }
+    CALIFICATIONS {
+        Integer Id PK
+        Integer FK_User_ID
+        Float Average
+        Boolean IsApproved
+    }
+    IDENTITIES {
+        Integer Id PK
+        string Student_Control_Number
+        string CURP
+        string Full_Name
+    }
+    REPORT_CARDS {
+        Integer Id PK
+        Integer Identity_ID
+        string Periodo
+    }
+    REPORT_CARD_ITEMS {
+        Integer Id PK
+        Integer ReportCard_ID
+        Integer UAC_ID
+        string Clave_UAC
+        Integer Semestre
+    }
+    REPORT_CARD_RAW {
+        Integer Id PK
+        Integer Identity_ID
+        string Periodo
+        string SHA256
+    }
+    UACS {
+        Integer Id PK
+        string Clave
+        string Nombre
+    }
+
+    ROLES ||--o{ USERS : has
+    IDENTITIES ||--o{ USERS : has
+    USERS ||--o{ TOKENS : has
+    USERS ||--o{ CALIFICATIONS : has
+    USERS ||--|| PASSWORDS : has
+    IDENTITIES ||--o{ REPORT_CARDS : has
+    REPORT_CARDS ||--o{ REPORT_CARD_ITEMS : has
+    UACS ||--o{ REPORT_CARD_ITEMS : has
+    IDENTITIES ||--o{ REPORT_CARD_RAW : has
+```

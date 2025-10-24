@@ -1,0 +1,100 @@
+@startuml
+' PlantUML ER-style diagram for database schema
+hide circle
+
+entity roles {
+  * Id : Integer
+  --
+  Role_Name : String(50)
+}
+
+entity users {
+  * Id : Integer
+  --
+  User_Name : String(80)
+  User_Email : String(100)
+  FK_Rol_ID : Integer
+  Telephone : BigInteger
+  FK_Identity_ID : Integer
+}
+
+entity passwords {
+  * Id : Integer
+  --
+  FK_User_ID : Integer
+  Hashed_Password : String(255)
+}
+
+entity tokens {
+  * Id : Integer
+  --
+  Token : String(400)
+  InBlackList : Boolean
+  FK_User_ID : Integer
+  Date_Expiration_Time : Date
+}
+
+entity califications {
+  * Id : Integer
+  --
+  FK_User_ID : Integer
+  Average : Float
+  IsApproved : Boolean
+}
+
+entity identities {
+  * Id : Integer
+  --
+  Student_Control_Number : String(32)
+  CURP : String(20)
+  Full_Name : String(200)
+}
+
+entity report_cards {
+  * Id : Integer
+  --
+  Identity_ID : Integer
+  Periodo : String(64)
+  Plan_Estudios : String(120)
+  Carrera : String(150)
+  Promedio : Numeric(4,2)
+}
+
+entity report_card_items {
+  * Id : Integer
+  --
+  ReportCard_ID : Integer
+  UAC_ID : Integer
+  Clave_UAC : String(32)
+  Semestre : Integer
+  Nombre : String(200)
+  Calificacion : Numeric(4,2)
+}
+
+entity report_card_raw {
+  * Id : Integer
+  --
+  Identity_ID : Integer
+  Periodo : String(64)
+  SHA256 : String(64)
+}
+
+entity uacs {
+  * Id : Integer
+  --
+  Clave : String(32)
+  Nombre : String(200)
+}
+
+' Relationships
+roles ||--o{ users : has
+identities ||--o{ users : has
+users ||--o{ tokens : has
+users ||--o{ califications : has
+users ||--|| passwords : has
+identities ||--o{ report_cards : has
+report_cards ||--o{ report_card_items : has
+uacs ||--o{ report_card_items : has
+identities ||--o{ report_card_raw : has
+
+@enduml
