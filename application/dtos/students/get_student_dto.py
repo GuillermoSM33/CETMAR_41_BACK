@@ -9,5 +9,6 @@ class GetStudentDTO(BaseModel):
     FK_Rol_ID: int
     Telephone: int
     FK_Identity_ID: int
+      
     class Config:
         orm_mode = True
