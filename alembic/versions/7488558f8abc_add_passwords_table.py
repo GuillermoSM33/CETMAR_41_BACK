@@ -19,6 +19,7 @@ def upgrade() -> None:
     )
 
     # Insertar contraseñas dummy para todos los usuarios existentes, las contrseñas son del 1 al 6
+    # nueva contraseña de aysha 54321
     connection = op.get_bind()
     result = connection.execute(sa.text("SELECT Id FROM users"))
     users = result.fetchall()
