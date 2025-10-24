@@ -16,5 +16,4 @@ class UserModel(Base):
     identity = relationship("IdentityModel", back_populates="users")
     tokens = relationship("TokenModel", back_populates="user")
     califications = relationship("CalificationModel", back_populates="user")
-
     auth = relationship("AuthModel", back_populates="user", uselist=False)
