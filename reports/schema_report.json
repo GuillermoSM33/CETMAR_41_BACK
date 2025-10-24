@@ -1,0 +1,165 @@
+{
+  "generated_at": "2025-10-24",
+  "tables": [
+    {
+      "name": "passwords",
+      "class": "AuthModel",
+      "columns": [
+        {"name": "Id", "type": "Integer", "primary_key": true, "autoincrement": true},
+        {"name": "FK_User_ID", "type": "Integer", "foreign_key": "users.Id", "unique": true},
+        {"name": "Hashed_Password", "type": "String(255)"}
+      ],
+      "relationships": [{"name": "user", "target": "UserModel", "back_populates": "auth", "type": "one-to-one"}]
+    },
+    {
+      "name": "roles",
+      "class": "RoleModel",
+      "columns": [
+        {"name": "Id", "type": "Integer", "primary_key": true, "autoincrement": true},
+        {"name": "Role_Name", "type": "String(50)"}
+      ],
+      "relationships": [{"name": "users", "target": "UserModel", "back_populates": "role", "type": "one-to-many"}]
+    },
+    {
+      "name": "tokens",
+      "class": "TokenModel",
+      "columns": [
+        {"name": "Id", "type": "Integer", "primary_key": true, "autoincrement": true},
+        {"name": "Token", "type": "String(400)", "unique": true},
+        {"name": "InBlackList", "type": "Boolean", "default": false},
+        {"name": "FK_User_ID", "type": "Integer", "foreign_key": "users.Id"},
+        {"name": "Date_Expiration_Time", "type": "Date"}
+      ],
+      "relationships": [{"name": "user", "target": "UserModel", "back_populates": "tokens", "type": "many-to-one"}]
+    },
+    {
+      "name": "users",
+      "class": "UserModel",
+      "columns": [
+        {"name": "Id", "type": "Integer", "primary_key": true, "autoincrement": true},
+        {"name": "User_Name", "type": "String(80)"},
+        {"name": "User_Email", "type": "String(100)", "unique": true},
+        {"name": "FK_Rol_ID", "type": "Integer", "foreign_key": "roles.Id"},
+        {"name": "Telephone", "type": "BigInteger"},
+        {"name": "FK_Identity_ID", "type": "Integer", "foreign_key": "identities.Id"}
+      ],
+      "relationships": [
+        {"name": "role", "target": "RoleModel", "back_populates": "users", "type": "many-to-one"},
+        {"name": "identity", "target": "IdentityModel", "back_populates": "users", "type": "many-to-one"},
+        {"name": "tokens", "target": "TokenModel", "back_populates": "user", "type": "one-to-many"},
+        {"name": "califications", "target": "CalificationModel", "back_populates": "user", "type": "one-to-many"},
+        {"name": "auth", "target": "AuthModel", "back_populates": "user", "type": "one-to-one"}
+      ]
+    },
+    {
+      "name": "identities",
+      "class": "IdentityModel",
+      "columns": [
+        {"name": "Id", "type": "Integer", "primary_key": true, "autoincrement": true},
+        {"name": "Student_Control_Number", "type": "String(32)", "unique": true, "nullable": false},
+        {"name": "CURP", "type": "String(20)", "unique": true, "nullable": true},
+        {"name": "Full_Name", "type": "String(200)", "nullable": true},
+        {"name": "Student_Identity", "type": "Integer", "nullable": true},
+        {"name": "Teacher_Identity", "type": "Integer", "nullable": true},
+        {"name": "Management_Admin_Identity", "type": "Integer", "nullable": true},
+        {"name": "Schedule", "type": "String(80)", "nullable": true},
+        {"name": "Major", "type": "String(150)", "nullable": true}
+      ],
+      "relationships": [
+        {"name": "users", "target": "UserModel", "back_populates": "identity", "type": "one-to-many"},
+        {"name": "report_cards", "target": "ReportCardModel", "back_populates": "identity", "type": "one-to-many"},
+        {"name": "raw_report_cards", "target": "ReportCardRawModel", "back_populates": "identity", "type": "one-to-many"}
+      ]
+    },
+    {
+      "name": "califications",
+      "class": "CalificationModel",
+      "columns": [
+        {"name": "Id", "type": "Integer", "primary_key": true, "autoincrement": true},
+        {"name": "FK_User_ID", "type": "Integer", "foreign_key": "users.Id"},
+        {"name": "Average", "type": "Float"},
+        {"name": "IsApproved", "type": "Boolean", "default": true}
+      ],
+      "relationships": [{"name": "user", "target": "UserModel", "back_populates": "califications", "type": "many-to-one"}]
+    },
+    {
+      "name": "uacs",
+      "class": "UACModel",
+      "columns": [
+        {"name": "Id", "type": "Integer", "primary_key": true, "autoincrement": true},
+        {"name": "Clave", "type": "String(32)", "unique": true, "nullable": false},
+        {"name": "Nombre", "type": "String(200)", "nullable": false},
+        {"name": "Tipo", "type": "String(32)", "nullable": true},
+        {"name": "Creditos", "type": "Integer", "nullable": true},
+        {"name": "Horas_Sem", "type": "Integer", "nullable": true}
+      ],
+      "relationships": [{"name": "items", "target": "ReportCardItemModel", "back_populates": "uac", "type": "one-to-many"}]
+    },
+    {
+      "name": "report_cards",
+      "class": "ReportCardModel",
+      "table_args": {
+        "unique_constraints": [["Identity_ID", "Periodo"]],
+        "indexes": [["Identity_ID", "Periodo"], ["Periodo"]]
+      },
+      "columns": [
+        {"name": "Id", "type": "Integer", "primary_key": true, "autoincrement": true},
+        {"name": "Identity_ID", "type": "Integer", "foreign_key": "identities.Id", "nullable": false},
+        {"name": "Periodo", "type": "String(64)", "nullable": false},
+        {"name": "Plan_Estudios", "type": "String(120)"},
+        {"name": "Carrera", "type": "String(150)"},
+        {"name": "Avance_Oblig", "type": "Integer", "default": 0},
+        {"name": "Avance_Opt", "type": "Integer", "default": 0},
+        {"name": "Avance_Total", "type": "Integer", "default": 0},
+        {"name": "Promedio", "type": "Numeric(4,2)", "default": 0},
+        {"name": "Src_SHA256", "type": "String(64)"},
+        {"name": "Created_At", "type": "DateTime", "server_default": "func.sysdatetime()"},
+        {"name": "Updated_At", "type": "DateTime", "server_default": "func.sysdatetime()", "onupdate": "func.sysdatetime()"}
+      ],
+      "relationships": [
+        {"name": "identity", "target": "IdentityModel", "back_populates": "report_cards", "type": "many-to-one"},
+        {"name": "items", "target": "ReportCardItemModel", "back_populates": "report_card", "type": "one-to-many", "cascade": "all, delete-orphan"}
+      ]
+    },
+    {
+      "name": "report_card_items",
+      "class": "ReportCardItemModel",
+      "table_args": {
+        "unique_constraints": [["ReportCard_ID", "Clave_UAC", "Semestre"]],
+        "indexes": [["ReportCard_ID"], ["Clave_UAC"], ["Semestre"]]
+      },
+      "columns": [
+        {"name": "Id", "type": "Integer", "primary_key": true, "autoincrement": true},
+        {"name": "ReportCard_ID", "type": "Integer", "foreign_key": "report_cards.Id", "nullable": false},
+        {"name": "UAC_ID", "type": "Integer", "foreign_key": "uacs.Id", "nullable": true},
+        {"name": "Clave_UAC", "type": "String(32)", "nullable": false},
+        {"name": "Semestre", "type": "Integer", "nullable": false},
+        {"name": "Nombre", "type": "String(200)", "nullable": false},
+        {"name": "Tipo_UAC", "type": "String(32)"},
+        {"name": "Calificacion", "type": "Numeric(4,2)"},
+        {"name": "Horas_Sem", "type": "Integer"},
+        {"name": "Creditos", "type": "Integer"},
+        {"name": "Periodo_Item", "type": "String(64)"}
+      ],
+      "relationships": [
+        {"name": "report_card", "target": "ReportCardModel", "back_populates": "items", "type": "many-to-one"},
+        {"name": "uac", "target": "UACModel", "back_populates": "items", "type": "many-to-one"}
+      ]
+    },
+    {
+      "name": "report_card_raw",
+      "class": "ReportCardRawModel",
+      "table_args": {"unique_constraints": [["SHA256"]]},
+      "columns": [
+        {"name": "Id", "type": "Integer", "primary_key": true, "autoincrement": true},
+        {"name": "Identity_ID", "type": "Integer", "foreign_key": "identities.Id", "nullable": false},
+        {"name": "Periodo", "type": "String(64)", "nullable": false},
+        {"name": "Raw_JSON", "type": "Text", "nullable": false},
+        {"name": "SHA256", "type": "String(64)", "nullable": false},
+        {"name": "Stored_URI", "type": "String(400)"},
+        {"name": "Created_At", "type": "DateTime", "server_default": "func.sysdatetime()"}
+      ],
+      "relationships": [{"name": "identity", "target": "IdentityModel", "back_populates": "raw_report_cards", "type": "many-to-one"}]
+    }
+  ]
+}
