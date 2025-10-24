@@ -1,5 +1,7 @@
 # presentation/api/v1/routers/report_card_controller.py
+# presentation/api/v1/routers/report_card_controller.py
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
+from typing import List, HTTPException
 from typing import List
 from sqlalchemy.orm import Session, joinedload
 import hashlib
