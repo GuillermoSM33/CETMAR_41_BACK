@@ -15,3 +15,10 @@ def get_all_users(db: Session = Depends(get_db)):
 @router.put("/users/{user_id}", response_model=UpdateUserDTO)
 def update_user(user_id: int, user_data: UpdateUserDTO, db: Session = Depends(get_db)):
     return update_user_service(db, user_id, user_data)
+
+@router.get("/users/count")
+def get_user_count(db: Session = Depends(get_db)):
+    """
+    Devuelve la cantidad total de usuarios registrados en la base de datos.
+    """
+    return {"total_usuarios": count_users_service(db)}
