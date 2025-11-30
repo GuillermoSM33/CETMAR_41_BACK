@@ -72,11 +72,7 @@ def save_parsed_report_cards(db: Session, parsed_results: List[Any], sha256: str
                 Clave_UAC=item.clave_uac,
                 Semestre=item.semestre,
                 Nombre=item.nombre,
-                Tipo_UAC=item.tipo_uac,
                 Calificacion=item.calif,
-                Horas_Sem=item.horas_sem,
-                Creditos=item.creditos,
-                Periodo_Item=item.periodo,
             )
             db.add(rci)
             seen_keys.add(key)
@@ -103,11 +99,7 @@ def get_stored_report_card(db: Session, report_card_id: int) -> StoredReportCard
             clave_uac=it.Clave_UAC,
             semestre=it.Semestre,
             nombre=it.Nombre,
-            tipo_uac=it.Tipo_UAC,
             calif=float(it.Calificacion) if it.Calificacion is not None else None,
-            horas_sem=it.Horas_Sem,
-            creditos=it.Creditos,
-            periodo=it.Periodo_Item,
         ))
 
     dto = StoredReportCardDTO(
@@ -116,13 +108,6 @@ def get_stored_report_card(db: Session, report_card_id: int) -> StoredReportCard
         curp=rc.identity.CURP if rc.identity else None,
         alumno=rc.identity.Full_Name if rc.identity else None,
         numero_control=rc.identity.Student_Control_Number if rc.identity else None,
-        periodo=rc.Periodo,
-        plan_estudios=rc.Plan_Estudios,
-        carrera=rc.Carrera,
-        avance_oblig=rc.Avance_Oblig,
-        avance_opt=rc.Avance_Opt,
-        avance_total=rc.Avance_Total,
-        promedio=float(rc.Promedio) if rc.Promedio is not None else 0.0,
         src_sha256=rc.Src_SHA256,
         created_at=rc.Created_At,
         updated_at=rc.Updated_At,

@@ -76,6 +76,12 @@ entity report_card_raw {
   --
   Identity_ID : Integer
   Periodo : String(64)
+  ReportCard_Item_ID : Integer
+  UAC_ID : Integer
+  Clave_UAC : String(32)
+  Semestre : Integer
+  Nombre : String(200)
+  Calificacion : Numeric(4,2)
   SHA256 : String(64)
 }
 
@@ -95,6 +101,8 @@ users ||--|| passwords : has
 identities ||--o{ report_cards : has
 report_cards ||--o{ report_card_items : has
 uacs ||--o{ report_card_items : has
+report_card_items ||--o{ report_card_raw : has
+uacs ||--o{ report_card_raw : has
 identities ||--o{ report_card_raw : has
 
 @enduml
