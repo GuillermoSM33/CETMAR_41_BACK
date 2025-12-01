@@ -1,12 +1,19 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Union
 from datetime import datetime
 
 class StoredUACItemDTO(BaseModel):
     clave_uac: str
     semestre: int
     nombre: str
-    calif: Optional[float]
+    calif1: Optional[Union[float, str]]
+    calif2: Optional[Union[float, str]]
+    calif3: Optional[Union[float, str]]
+    # attendance
+    asis1: Optional[int]
+    asis2: Optional[int]
+    asis3: Optional[int]
+    acreditado: Optional[bool]
 
 
 class StoredReportCardDTO(BaseModel):

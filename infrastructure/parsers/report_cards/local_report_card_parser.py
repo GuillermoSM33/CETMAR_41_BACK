@@ -49,12 +49,30 @@ def _split_table_lines(text: str) -> List[str]:
     Obtiene únicamente las líneas que parecen filas de tabla de UACs,
     es decir, las que comienzan con una clave como 30310-0002-23CA, etc.
     """
-    lines = [l.rstrip() for l in text.splitlines()]
-    table_lines = []
+    raw_lines = [l.rstrip() for l in text.splitlines()]
+    table_lines: List[str] = []
 
-    for ln in lines:
-        if _row.match(ln):
-            table_lines.append(ln)
+    i = 0
+    L = len(raw_lines)
+    while i < L:
+        ln = raw_lines[i]
+        m = _row.match(ln)
+        if m:
+            # start a merged entry with this line
+            merged = ln
+            j = i + 1
+            # append following lines that do NOT start a new clave row
+            while j < L and not _row.match(raw_lines[j]) and raw_lines[j].strip():
+                # join with a space to preserve token boundaries
+                merged = merged + " " + raw_lines[j].strip()
+                j += 1
+
+            table_lines.append(merged)
+            # advance i to j
+            i = j
+            continue
+
+        i += 1
 
     return table_lines
 
@@ -165,28 +183,93 @@ class LocalReportCardParser(IReportCardParser):
                 clave = m.group(1).strip()
                 rest = m.group(2).strip()
 
-                split_name = re.split(r"\s+(?=\d)", rest)
-                nombre = split_name[0].strip()
+                # Strip up to 6 trailing tokens that look like attendance (AC/NA) or numbers
+                nombre = re.sub(r"(?:\s+(?:AC|NA|\d+(?:\.\d+)?)){1,6}\s*$", "", rest, flags=re.I).strip()
 
-                nums = [float(n) for n in re.findall(r"\d+(?:\.\d+)?", rest)]
-                calif = nums[-1] if nums else None  
+                # Tokenize trailing section to detect attendance (AC/NA) and numeric grades
+                # Include accented letters in token matching so subject names and tokens are captured.
+                tokens = re.findall(r"[A-Za-zÁÉÍÓÚÑáéíóúñ]+|\d+(?:\.\d+)?", rest, flags=re.I)
+
+                # collect trailing tokens (max 6): prefer to read at end of line
+                trailing = tokens[-6:] if tokens else []
+
+                # classify tokens into numbers vs letters
+                nums = [float(t) for t in trailing if re.fullmatch(r"\d+(?:\.\d+)?", t)]
+                lets = [t for t in trailing if not re.fullmatch(r"\d+(?:\.\d+)?", t)]
+
+                # default values
+                cal1 = cal2 = cal3 = None
+                as1 = as2 = as3 = None
+                acreditado = None
+
+                # Heuristics:
+                # - If pattern is LET LET LET NUM NUM NUM -> attendance then grades
+                # - If all NUM x6 -> first 3 = grades, last 3 = attendance (numeric)
+                # - If mixed, assign numeric tokens to grades in order and letters to attendance
+                if len(trailing) >= 6 and all(re.fullmatch(r"[A-Za-zÁÉÍÓÚÑáéíóúñ]+", t, flags=re.I) for t in trailing[:3]) and all(re.fullmatch(r"\d+(?:\.\d+)?", t) for t in trailing[3:6]):
+                    # Pattern: LETTER LETTER LETTER NUM NUM NUM
+                    # According to header layout: first three are grades (may be 'AC'/'NA'), last three are attendance
+                    cal1, cal2, cal3 = trailing[0], trailing[1], trailing[2]
+                    as1, as2, as3 = [int(float(x)) for x in trailing[3:6]]
+                elif len(trailing) >= 6 and all(re.fullmatch(r"\d+(?:\.\d+)?", t) for t in trailing[:6]):
+                    # All numeric: first three califs, last three attendance counts
+                    cal1, cal2, cal3 = [float(x) for x in trailing[:3]]
+                    as1, as2, as3 = [int(float(x)) for x in trailing[3:6]]
+                else:
+                    # assign numbers in order to cal1..3
+                    if nums:
+                        if len(nums) >= 1:
+                            cal1 = float(nums[0])
+                        if len(nums) >= 2:
+                            cal2 = float(nums[1])
+                        if len(nums) >= 3:
+                            cal3 = float(nums[2])
+                    # assign letters to attendance in order
+                    if lets:
+                        if len(lets) >= 1:
+                            # if letters like AC/NA appear here, they are likely grades
+                            as1 = None
+                        if len(lets) >= 2:
+                            as2 = None
+                        if len(lets) >= 3:
+                            as3 = None
+
+                # derive a simple 'acreditado' flag when letters AC/NA are present
+                if any(x in ("AC","NA") for x in [as1, as2, as3] if x):
+                    # Per your note: AC = No Acreditado, NA = Acreditado
+                    # If any period is 'AC' we mark acreditado=False; if at least one 'NA' and no 'AC', True
+                    vals = [x for x in (as1, as2, as3) if x]
+                    if any(v == "AC" for v in vals):
+                        acreditado = False
+                    elif any(v == "NA" for v in vals):
+                        acreditado = True
 
                 suf = re.search(r"-([A-Za-z0-9]+)$", clave)
                 tipo_uac_val = suf.group(1) if suf else ""
 
                 semestre_val = semestre_default if semestre_default is not None else 0
 
+                # pick legacy final grade if present (prefer cal3, else last numeric)
+                final_cal = None
+                if cal3 is not None:
+                    final_cal = cal3
+                else:
+                    nums_all = [float(n) for n in re.findall(r"\d+(?:\.\d+)?", rest)]
+                    final_cal = nums_all[-1] if nums_all else None
+
                 uac.append(
                     UACItemDTO(
                         plantel="CETMAR",
-                        tipo_uac=tipo_uac_val,
                         clave_uac=clave,
                         semestre=int(semestre_val),
                         nombre=nombre,
-                        calif=calif,
-                        horas_sem=0,
-                        creditos=None,
-                        periodo="",
+                        calif1=cal1,
+                        calif2=cal2,
+                        calif3=cal3,
+                        asis1=as1,
+                        asis2=as2,
+                        asis3=as3,
+                        acreditado=acreditado,
                     )
                 )
 

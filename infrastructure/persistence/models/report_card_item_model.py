@@ -22,6 +22,17 @@ class ReportCardItemModel(Base):
     Clave_UAC: Mapped[str] = mapped_column(String(32), nullable=False)
     Semestre: Mapped[int] = mapped_column(Integer, nullable=False)
     Nombre: Mapped[str] = mapped_column(String(200), nullable=False)
+    # Per-period grades: store as short strings to allow 'AC'/'NA' or numeric values
+    Calificacion1: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
+    Calificacion2: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
+    Calificacion3: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
+
+    # Attendance values (store numeric counts)
+    Asistencia1: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    Asistencia2: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    Asistencia3: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
+    # Convenience: legacy single final grade
     Calificacion: Mapped[Optional[float]] = mapped_column(Numeric(4, 2), nullable=True)
 
     report_card = relationship("ReportCardModel", back_populates="items")
