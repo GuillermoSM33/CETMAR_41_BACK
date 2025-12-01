@@ -17,6 +17,8 @@ class IdentityModel(Base):
     CURP: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, unique=True)
     Full_Name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
 
+    Grupo: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+
     Student_Identity: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     Teacher_Identity: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     Management_Admin_Identity: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
