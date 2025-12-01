@@ -3,8 +3,22 @@ from presentation.api.v1.routers import user_controller
 from presentation.api.v1.routers import auth_controller
 from presentation.api.v1.routers import student_controller
 from presentation.api.v1.routers import report_card_controller
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(swagger_ui_parameters={"syntaxHighlight": False})
+
+origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],  # Permite todos los métodos: GET, POST, PUT, DELETE, etc.
+    allow_headers=["*"],  # Permite todos los encabezados, incluido Authorization
+)
 
 """ Sección de usuarios """
 
