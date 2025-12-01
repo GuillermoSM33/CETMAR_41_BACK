@@ -149,31 +149,17 @@
     {
       "name": "report_card_raw",
       "class": "ReportCardRawModel",
-      "table_args": {
-        "unique_constraints": [["SHA256"], ["Identity_ID", "Periodo", "Clave_UAC"]],
-        "indexes": [["Identity_ID", "Periodo", "Clave_UAC"]]
-      },
+      "table_args": {"unique_constraints": [["SHA256"]]},
       "columns": [
         {"name": "Id", "type": "Integer", "primary_key": true, "autoincrement": true},
         {"name": "Identity_ID", "type": "Integer", "foreign_key": "identities.Id", "nullable": false},
         {"name": "Periodo", "type": "String(64)", "nullable": false},
-        {"name": "ReportCard_Item_ID", "type": "Integer", "foreign_key": "report_card_items.Id", "nullable": true},
-        {"name": "UAC_ID", "type": "Integer", "foreign_key": "uacs.Id", "nullable": true},
-        {"name": "Clave_UAC", "type": "String(32)", "nullable": true},
-        {"name": "Semestre", "type": "Integer", "nullable": true},
-        {"name": "Nombre", "type": "String(200)", "nullable": true},
-        {"name": "Calificacion", "type": "Numeric(4,2)", "nullable": true},
-        {"name": "Periodo_Item", "type": "String(64)", "nullable": true},
         {"name": "Raw_JSON", "type": "Text", "nullable": false},
         {"name": "SHA256", "type": "String(64)", "nullable": false},
         {"name": "Stored_URI", "type": "String(400)"},
         {"name": "Created_At", "type": "DateTime", "server_default": "func.sysdatetime()"}
       ],
-      "relationships": [
-        {"name": "identity", "target": "IdentityModel", "back_populates": "raw_report_cards", "type": "many-to-one"},
-        {"name": "report_card_item", "target": "ReportCardItemModel", "back_populates": "raw_entries", "type": "many-to-one"},
-        {"name": "uac", "target": "UACModel", "back_populates": "raw_entries", "type": "many-to-one"}
-      ]
+      "relationships": [{"name": "identity", "target": "IdentityModel", "back_populates": "raw_report_cards", "type": "many-to-one"}]
     }
   ]
 }
