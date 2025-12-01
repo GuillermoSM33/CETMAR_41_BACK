@@ -51,10 +51,6 @@ erDiagram
     REPORT_CARD_RAW {
         Integer Id PK
         Integer Identity_ID
-        Integer ReportCard_Item_ID
-        Integer UAC_ID
-        string Clave_UAC
-        Integer Semestre
         string Periodo
         string SHA256
     }
@@ -73,6 +69,4 @@ erDiagram
     REPORT_CARDS ||--o{ REPORT_CARD_ITEMS : has
     UACS ||--o{ REPORT_CARD_ITEMS : has
     IDENTITIES ||--o{ REPORT_CARD_RAW : has
-    REPORT_CARD_ITEMS ||--o{ REPORT_CARD_RAW : has
-    UACS ||--o{ REPORT_CARD_RAW : has
 ```

@@ -162,32 +162,21 @@ Este documento describe las tablas definidas en `infrastructure/persistence/mode
 
 ---
 
-### `report_card_raw` (ReportCardRawModel) — boleta por materia
+### `report_card_raw` (ReportCardRawModel)
 - Clase: `ReportCardRawModel`
 - __tablename__: `report_card_raw`
 - __table_args__:
   - UniqueConstraint("SHA256", name="uq_rcr_sha256")
-  - UniqueConstraint("Identity_ID", "Periodo", "Clave_UAC", name="uq_rcr_identity_periodo_clave")
-  - Index("ix_rcr_identity_periodo_clave", "Identity_ID", "Periodo", "Clave_UAC")
-- Columnas (ahora por-materia):
+- Columnas:
   - `Id` — Integer, primary_key, autoincrement
   - `Identity_ID` — Integer, ForeignKey("identities.Id"), nullable=False
   - `Periodo` — String(64), nullable=False
-  - `ReportCard_Item_ID` — Integer, ForeignKey("report_card_items.Id"), nullable=True
-  - `UAC_ID` — Integer, ForeignKey("uacs.Id"), nullable=True
-  - `Clave_UAC` — String(32), nullable=True
-  - `Semestre` — Integer, nullable=True
-  - `Nombre` — String(200), nullable=True
-  - `Calificacion` — Numeric(4,2), nullable=True
-  - `Periodo_Item` — String(64), nullable=True
   - `Raw_JSON` — Text, nullable=False
   - `SHA256` — String(64), nullable=False
   - `Stored_URI` — String(400), nullable=True
   - `Created_At` — DateTime(timezone=True), server_default=func.sysdatetime()
 - Relaciones:
   - `identity` — relationship("IdentityModel", back_populates="raw_report_cards")
-  - `report_card_item` — relationship("ReportCardItemModel", back_populates="raw_entries")
-  - `uac` — relationship("UACModel", back_populates="raw_entries")
 
 ---
 

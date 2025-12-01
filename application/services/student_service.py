@@ -1,7 +1,14 @@
+import csv
+import io
+import re
+from typing import Any, Dict, List, Optional
+
+import bcrypt
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import joinedload
 from infrastructure.persistence.models.user_model import UserModel
 from infrastructure.persistence.models.role_model import RoleModel
+from infrastructure.persistence.models.auth_model import AuthModel
 from application.dtos.students.update_student_dto import UpdateStudentDTO
 from application.dtos.students.get_student_dto import GetStudentDetailDTO
 from typing import List, Any
@@ -56,10 +63,11 @@ def get_all_students_service(db: Session, role_name: str) -> List[GetStudentDeta
         return []
     return db.query(UserModel).filter(UserModel.FK_Rol_ID == role.Id).all()
 
+
 def update_student_service(db: Session, user_id: int, student_data: UpdateStudentDTO) -> UserModel:
     student = db.query(UserModel).filter(UserModel.Id == user_id).first()
     if not student:
-        raise Exception("Usuario no encontrado")
+        raise KeyError("Usuario no encontrado")
 
     student.User_Name = student_data.User_Name
     student.User_Email = student_data.User_Email
