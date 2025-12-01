@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from application.dtos.students.get_student_dto import GetStudentDTO
+from application.dtos.students.get_student_dto import GetStudentDetailDTO
 from application.dtos.students.update_student_dto import UpdateStudentDTO
 from infrastructure.persistence.repositories.db import get_db  
 from application.services.student_service import *
@@ -8,7 +8,7 @@ from typing import List
 
 router = APIRouter()
 
-@router.get("/students", response_model=List[GetStudentDTO])
+@router.get("/students", response_model=List[GetStudentDetailDTO])
 def get_all_students(db: Session = Depends(get_db)):
     return get_all_students_service(db, "student")
 
