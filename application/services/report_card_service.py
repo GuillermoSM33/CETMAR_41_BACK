@@ -23,7 +23,7 @@ def save_parsed_report_cards(db: Session, parsed_results: List[Any], sha256: str
     for dto in parsed_results:
         identity = None
         control_num = getattr(dto, "numero_control", "documento_sin_control")
-        
+
         if getattr(dto, "numero_control", None):
             identity = db.query(IdentityModel).filter(IdentityModel.Student_Control_Number == dto.numero_control).first()
         if not identity and getattr(dto, "curp", None):
@@ -207,3 +207,14 @@ def get_stored_report_card(db: Session, report_card_id: int) -> StoredReportCard
     )
 
     return dto
+
+def get_report(control_number: str) -> str:
+    """Descargar boleta del estudiante"""
+    storage_path = os.path.normpath(os.path.join(project_root, "app", "storage"))
+    file_path = os.path.join(storage_path, f"{control_number}.pdf")
+    
+    # Validamos si el archivo físico existe
+    if not os.path.exists(file_path):
+        return None
+        
+    return file_path
