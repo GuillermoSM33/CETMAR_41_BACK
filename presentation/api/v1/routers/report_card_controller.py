@@ -10,6 +10,7 @@ from infrastructure.parsers.report_cards.local_report_card_parser import LocalRe
 from infrastructure.persistence.repositories.db import get_db
 from infrastructure.persistence.models.report_card_model import ReportCardModel
 from application.services.report_card_service import save_parsed_report_cards, get_stored_report_card
+import io
 
 router = APIRouter()
 
@@ -19,31 +20,44 @@ def get_parser() -> IReportCardParser:
 
 @router.post("/parse_many", response_model=List[StoredReportCardDTO])
 async def parse_report_card_many(
-    file: UploadFile = File(...),
+    files: List[UploadFile] = File(...),
     parser: IReportCardParser = Depends(get_parser),
     db: Session = Depends(get_db),
 ):
-    try:
-        file.file.seek(0)
-        content = file.file.read()
-        sha256 = hashlib.sha256(content).hexdigest()
-        file.file.seek(0)
+    all_saved_results = []
 
-        results = parser.parse_many(file.file)
-        if not results:
-            raise HTTPException(status_code=422, detail="No se detectó ningún alumno en el PDF.")
+    for file in files:
         try:
-            saved = save_parsed_report_cards(db, results, sha256)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error guardando boletas: {e}")
+            # Leer contenido de forma asíncrona
+            content = await file.read()
+            if not content:
+                continue
+                
+            sha256 = hashlib.sha256(content).hexdigest()
+            
+            # Resetear stream para el parser
+            pdf_stream = io.BytesIO(content)
+            results = parser.parse_many(pdf_stream)
 
-        return saved
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error al procesar PDF: {e}")
+            if not results:
+                print(f"No se detectaron alumnos en el archivo: {file.filename}")
+                continue
+
+            # Se envuelven errores específicos del servicio para no detener el lote
+            try:
+                saved = save_parsed_report_cards(db, results, sha256, content)
+                all_saved_results.extend(saved)
+            except Exception as e:
+                print(f"Error guardando datos de {file.filename}: {e}")
+                
+        except Exception as e:
+            print(f"Error procesando PDF {file.filename}: {e}")
+            continue # Pasar al siguiente archivo del lote
+
+    if not all_saved_results:
+        raise HTTPException(status_code=422, detail="No se pudo procesar ningún documento del lote.")
+
+    return all_saved_results
 
 
 @router.get("/{report_card_id}", response_model=StoredReportCardDTO)

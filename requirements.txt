@@ -18,8 +18,9 @@ email-validator>=2.0,<3.0
 
 # --- Procesamiento de formatos/boletas ---
 openpyxl>=3.1,<4.0
-pypdf>=5.0,<6.0        # Opcional
-pdfplumber>=0.11,<1.0  # Opcional
+pypdf>=5.0,<6.0       
+pdfplumber>=0.11,<1.0  
+pymupdf==1.25.1
 
 # --- Azure (Entra ID y secretos/archivos) ---
 azure-identity>=1.15,<2.0

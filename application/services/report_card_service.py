@@ -6,14 +6,24 @@ from infrastructure.persistence.models.report_card_item_model import ReportCardI
 from infrastructure.persistence.models.uac_model import UACModel
 from application.dtos.report_cards.report_card_response_dto import StoredReportCardDTO, StoredUACItemDTO
 from sqlalchemy.orm import joinedload
+import fitz
+import os
 
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.join(current_dir, "..", "..")
 
-def save_parsed_report_cards(db: Session, parsed_results: List[Any], sha256: str) -> List[StoredReportCardDTO]:
+def save_parsed_report_cards(db: Session, parsed_results: List[Any], sha256: str, pdf_content: bytes) -> List[StoredReportCardDTO]:
 
     saved_rcs: List[ReportCardModel] = []
 
+    storage_path = os.path.normpath(os.path.join(project_root, "app", "storage"))
+    if not os.path.exists(storage_path):
+        os.makedirs(storage_path, exist_ok=True)
+
     for dto in parsed_results:
         identity = None
+        control_num = getattr(dto, "numero_control", "documento_sin_control")
+        
         if getattr(dto, "numero_control", None):
             identity = db.query(IdentityModel).filter(IdentityModel.Student_Control_Number == dto.numero_control).first()
         if not identity and getattr(dto, "curp", None):
@@ -28,7 +38,31 @@ def save_parsed_report_cards(db: Session, parsed_results: List[Any], sha256: str
             db.add(identity)
             db.flush()
 
-        existing_rc = db.query(ReportCardModel).filter(ReportCardModel.Src_SHA256 == sha256, ReportCardModel.Identity_ID == identity.Id).first()
+        existing_rc = db.query(ReportCardModel).filter(
+            ReportCardModel.Src_SHA256 == sha256, 
+            ReportCardModel.Identity_ID == identity.Id
+        ).first()
+
+        full_file_path = os.path.join(storage_path, f"{control_num}.pdf")
+        file_exists = os.path.exists(full_file_path)
+
+        # Si el registro existe en DB y el archivo físico está presente, saltamos el proceso pesado
+        if existing_rc and file_exists:
+            saved_rcs.append(existing_rc)
+            continue
+
+        # Solo se ejecuta si es un archivo nuevo, cambió el hash, o se borró el PDF de la carpeta
+        try:
+            pdf_signed = apply_seal(pdf_content)
+        except Exception as e:
+            pdf_signed = pdf_content
+
+        # Almacenamiento Local (Sobrescribe si el archivo existía pero el Hash era distinto)
+        with open(full_file_path, "wb") as f:
+            f.write(pdf_signed)
+            f.flush()
+            os.fsync(f.fileno())
+
         if existing_rc:
             saved_rcs.append(existing_rc)
             continue
@@ -105,6 +139,31 @@ def save_parsed_report_cards(db: Session, parsed_results: List[Any], sha256: str
 
     return saved_dtos
 
+def apply_seal(pdf_bytes: bytes) -> bytes:
+    """Inserta firma y sello en el PDF y retorna los bytes."""
+    PATH_FIRMA = os.path.normpath(os.path.join(project_root, "app", "File", "signature.png"))
+    PATH_SELLO = os.path.normpath(os.path.join(project_root, "app", "File", "seal.png"))
+
+    if not os.path.exists(PATH_FIRMA) or not os.path.exists(PATH_SELLO):
+        raise FileNotFoundError("Recursos de imagen no encontrados.")
+
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    # Se asume que la boleta es de una página
+    page = doc[0] 
+    w, h = page.rect.width, page.rect.height
+
+    f_w = 180
+    c_x = (w / 2) - (f_w / 2)
+    
+    rect_f = fitz.Rect(c_x, h - 155, c_x + f_w, h - 75)
+    rect_s = fitz.Rect(w - 190, h - 145, w - 60, h - 25)
+
+    page.insert_image(rect_f, filename=PATH_FIRMA, keep_proportion=True)
+    page.insert_image(rect_s, filename=PATH_SELLO, keep_proportion=True)
+
+    out = doc.tobytes()
+    doc.close()
+    return out
 
 def get_stored_report_card(db: Session, report_card_id: int) -> StoredReportCardDTO:
     rc = db.query(ReportCardModel).options(joinedload(ReportCardModel.items), joinedload(ReportCardModel.identity)).filter(ReportCardModel.Id == report_card_id).first()
