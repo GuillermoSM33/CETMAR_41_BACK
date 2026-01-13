@@ -23,9 +23,12 @@ def seed_data():
     try:
         # 1. --- Roles ---
         admin_role = RoleModel(Role_Name="Admin")
-        teacher_role = RoleModel(Role_Name="Teacher")
+        teacher_role = RoleModel(Role_Name="Control School")
+        director_role = RoleModel(Role_Name="Director")
+        vinculation_role = RoleModel(Role_Name="Vinculation")
         student_role = RoleModel(Role_Name="Student")
-        session.add_all([admin_role, teacher_role, student_role])
+        management_admin_role = RoleModel(Role_Name="Management Admin")
+        session.add_all([admin_role, teacher_role, director_role, vinculation_role, student_role, management_admin_role])
         session.commit()
 
         # 2. --- Identidades ---
