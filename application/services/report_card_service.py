@@ -35,7 +35,7 @@ def save_parsed_report_cards(db: Session, parsed_results: List[Any], sha256: str
 
         rc = ReportCardModel(
             Identity_ID=identity.Id,
-            Periodo="",
+            Periodo=dto.uac[0].periodo if dto.uac and len(dto.uac) > 0 else "",
             Plan_Estudios=dto.plan_estudios,
             Carrera=dto.carrera,
             Avance_Oblig=dto.avance_oblig,
@@ -49,16 +49,6 @@ def save_parsed_report_cards(db: Session, parsed_results: List[Any], sha256: str
 
         seen_keys = set()
         for item in dto.uac:
-            # DEBUG: inspect incoming parsed item before persisting
-            try:
-                _item_dump = item.model_dump()
-            except Exception:
-                try:
-                    _item_dump = item.__dict__
-                except Exception:
-                    _item_dump = str(item)
-            print("[DEBUG] Saving item for clave=", getattr(item, 'clave_uac', None), "->", _item_dump)
-
             key = (item.clave_uac, item.semestre)
             if key in seen_keys:
                 continue
@@ -76,21 +66,17 @@ def save_parsed_report_cards(db: Session, parsed_results: List[Any], sha256: str
             if getattr(item, "clave_uac", None):
                 uac = db.query(UACModel).filter(UACModel.Clave == item.clave_uac).first()
 
-            # Convert and persist per-period fields. Calificaciones stored as strings
-            # (to support 'AC'/'NA') and asistencias as integers.
             rci = ReportCardItemModel(
                 ReportCard_ID=rc.Id,
                 UAC_ID=uac.Id if uac else None,
                 Clave_UAC=item.clave_uac,
                 Semestre=item.semestre,
                 Nombre=item.nombre,
-                Calificacion1=str(item.calif1) if getattr(item, 'calif1', None) is not None else None,
-                Calificacion2=str(item.calif2) if getattr(item, 'calif2', None) is not None else None,
-                Calificacion3=str(item.calif3) if getattr(item, 'calif3', None) is not None else None,
-                Asistencia1=int(item.asis1) if getattr(item, 'asis1', None) is not None and str(item.asis1).isdigit() else None,
-                Asistencia2=int(item.asis2) if getattr(item, 'asis2', None) is not None and str(item.asis2).isdigit() else None,
-                Asistencia3=int(item.asis3) if getattr(item, 'asis3', None) is not None and str(item.asis3).isdigit() else None,
-                Calificacion=(float(item.calif3) if isinstance(item.calif3, (int,float)) else (float(item.calif2) if isinstance(item.calif2, (int,float)) else (float(item.calif1) if isinstance(item.calif1, (int,float)) else None))),
+                Tipo_UAC=item.tipo_uac,
+                Calificacion=item.calif,
+                Horas_Sem=item.horas_sem,
+                Creditos=item.creditos,
+                Periodo_Item=item.periodo,
             )
             db.add(rci)
             seen_keys.add(key)
@@ -113,26 +99,15 @@ def get_stored_report_card(db: Session, report_card_id: int) -> StoredReportCard
 
     items = []
     for it in rc.items:
-        # Convert stored string califications back to number when possible
-        def _parse_cal(s):
-            if s is None:
-                return None
-            try:
-                return float(s)
-            except Exception:
-                return str(s)
-
         items.append(StoredUACItemDTO(
             clave_uac=it.Clave_UAC,
             semestre=it.Semestre,
             nombre=it.Nombre,
-            calif1=_parse_cal(it.Calificacion1),
-            calif2=_parse_cal(it.Calificacion2),
-            calif3=_parse_cal(it.Calificacion3),
-            asis1=it.Asistencia1,
-            asis2=it.Asistencia2,
-            asis3=it.Asistencia3,
-            acreditado=None,
+            tipo_uac=it.Tipo_UAC,
+            calif=float(it.Calificacion) if it.Calificacion is not None else None,
+            horas_sem=it.Horas_Sem,
+            creditos=it.Creditos,
+            periodo=it.Periodo_Item,
         ))
 
     dto = StoredReportCardDTO(
@@ -141,6 +116,13 @@ def get_stored_report_card(db: Session, report_card_id: int) -> StoredReportCard
         curp=rc.identity.CURP if rc.identity else None,
         alumno=rc.identity.Full_Name if rc.identity else None,
         numero_control=rc.identity.Student_Control_Number if rc.identity else None,
+        periodo=rc.Periodo,
+        plan_estudios=rc.Plan_Estudios,
+        carrera=rc.Carrera,
+        avance_oblig=rc.Avance_Oblig,
+        avance_opt=rc.Avance_Opt,
+        avance_total=rc.Avance_Total,
+        promedio=float(rc.Promedio) if rc.Promedio is not None else 0.0,
         src_sha256=rc.Src_SHA256,
         created_at=rc.Created_At,
         updated_at=rc.Updated_At,
