@@ -221,7 +221,6 @@ def get_all_students_service(db: Session, role_name: str) -> List[GetStudentDeta
 
     return result_dtos
 
-
 def update_student_service(db: Session, user_id: int, student_data: UpdateStudentDTO) -> UserModel:
     student = db.query(UserModel).filter(UserModel.Id == user_id).first()
     if not student:
