@@ -1,9 +1,9 @@
-# infrastructure/parsers/report_cards/local_report_card_parser.py
 import re, pdfplumber
 from typing import List, BinaryIO
 from application.dtos.report_cards.report_card_dto import ReportCardDTO, UACItemDTO
 from application.interfaces.report_cards.report_card_parser import IReportCardParser
 
+# Definiciones de encabezado (Se mantienen para la extracción de metadatos)
 _header = {
     "curp": re.compile(r"CURP\s*[:\-]?\s*([A-Z0-9]+)", re.I),
 
@@ -13,69 +13,30 @@ _header = {
     ),
 
     "control": re.compile(
-        r"(?:N(?:úmero|º|o)\.?\s*control|No\.?\s*CONTROL|NO\. CONTROL|NO CONTROL|NO\. CONTROL)"
+        r"(?:N(?:úmero|º|o)\.?\s*control|No\.?\s*CONTROL|NO\.?\s*CONTROL)"
         r"\s*[:\-]?\s*([0-9A-Z-]+)",
         re.I,
     ),
 
-    # Use word-boundary so 'PLANTEL' is not matched as 'Plan'
     "plan": re.compile(r"\bPlan(?:\s+de\s+estudios)?\b\s*[:\-]?\s*(.+)", re.I),
-
-    # Extra header fields to capture and avoid bleeding into other fields
+    "carrera": re.compile(r"CARRERA\s*[:\-]?\s*(.+)", re.I),
+    "promedio": re.compile(r"Promedio\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)?)", re.I),
+    "avance": re.compile(
+        r"Avance.?Oblig.?(\d+).?Opt.?(\d+).?Total.?(\d+)",
+        re.S | re.I,
+    ),
+    "semestre": re.compile(r"SEMESTRE\s*[:\-]?\s*(\d{1,2})", re.I),
+    
+    # Campos extra del encabezado
     "plantel": re.compile(r"PLANTEL\s*[:\-]?\s*(.+)", re.I),
     "turno": re.compile(r"TURNO\s*[:\-]?\s*(.+)", re.I),
     "clave_ct": re.compile(r"CLAVE\s+DEL\s+CENTRO\s+DE\s+TRABAJO\s*[:\-]?\s*(.+)", re.I),
     "grupo": re.compile(r"GRUPO\s*[:\-]?\s*(.+)", re.I),
     "generacion": re.compile(r"GENERACION\s*[:\-]?\s*(.+)", re.I),
     "modalidad": re.compile(r"MODALIDAD\s*[:\-]?\s*(.+)", re.I),
-
-    "carrera": re.compile(r"CARRERA\s*[:\-]?\s*(.+)", re.I),
-
-    "promedio": re.compile(r"Promedio\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)?)", re.I),
-
-    "avance": re.compile(
-        r"Avance.*?Oblig.*?(\d+).*?Opt.*?(\d+).*?Total.*?(\d+)",
-        re.S | re.I,
-    ),
-
-    "semestre": re.compile(r"SEMESTRE\s*[:\-]?\s*(\d{1,2})", re.I),
 }
 
-_row = re.compile(r"^\s*([0-9]{2,6}[0-9A-Z\-]{0,20})\s+(.+)$")
-
-
-def _split_table_lines(text: str) -> List[str]:
-    """
-    Obtiene únicamente las líneas que parecen filas de tabla de UACs,
-    es decir, las que comienzan con una clave como 30310-0002-23CA, etc.
-    """
-    raw_lines = [l.rstrip() for l in text.splitlines()]
-    table_lines: List[str] = []
-
-    i = 0
-    L = len(raw_lines)
-    while i < L:
-        ln = raw_lines[i]
-        m = _row.match(ln)
-        if m:
-            # start a merged entry with this line
-            merged = ln
-            j = i + 1
-            # append following lines that do NOT start a new clave row
-            while j < L and not _row.match(raw_lines[j]) and raw_lines[j].strip():
-                # join with a space to preserve token boundaries
-                merged = merged + " " + raw_lines[j].strip()
-                j += 1
-
-            table_lines.append(merged)
-            # advance i to j
-            i = j
-            continue
-
-        i += 1
-
-    return table_lines
-
+# 🛑 NOTA: Se ha eliminado la función _split_table_lines y la regex _row.
 
 class LocalReportCardParser(IReportCardParser):
     def parse_many(self, fp: BinaryIO) -> List[ReportCardDTO]:
@@ -85,13 +46,17 @@ class LocalReportCardParser(IReportCardParser):
             pass
 
         with pdfplumber.open(fp) as pdf:
+            # 1. Extracción de texto completo para buscar campos de encabezado
             full = "\n".join(
                 filter(None, ((p.extract_text() or "") for p in pdf.pages))
             )
 
+            # 2. Extracción de la tabla de materias usando geometría (solo la primera página)
+            page = pdf.pages[0]
+            tables = page.extract_tables()
+
         split_rx = re.compile(r"(?=HISTORIAL\s+ACAD(?:É|E)MICO)", re.I)
         parts = [c for c in split_rx.split(full) if c.strip()]
-
         if not parts and full.strip():
             parts = [full]
 
@@ -101,161 +66,115 @@ class LocalReportCardParser(IReportCardParser):
 
         results: List[ReportCardDTO] = []
 
-        for text in parts:
-            # Detectar posible artefacto de texto con letras duplicadas (NNOOMMBBRREE)
-            head_sample = text[:800]
-            duplicated_letters = bool(re.search(r"([A-ZÁÉÍÓÚÑ])\1", head_sample))
-            if duplicated_letters:
-                # Normalizar duplicados: AA -> A, sólo para letras (preserva números/otros)
-                norm_text = re.sub(r"([A-Za-zÁÉÍÓÚÑáéíóúñ])\1+", r"\1", text)
-            else:
-                norm_text = text
+        # Procesamos solo la primera parte (asumiendo una boleta por PDF)
+        if not parts:
+            return results
 
-            if not (
-                _header["curp"].search(norm_text)
-                or _header["alumno"].search(norm_text)
-                or _header["control"].search(norm_text)
-                or _row.search(text)
-            ):
-                continue
+        text = parts[0]
+        
+        # --- Extracción de encabezados ---
+        head_sample = text[:800]
+        duplicated_letters = bool(re.search(r"([A-ZÁÉÍÓÚÑ])\1", head_sample))
+        if duplicated_letters:
+            norm_text = re.sub(r"([A-Za-zÁÉÍÓÚÑáéíóúñ])\1+", r"\1", text)
+        else:
+            norm_text = text
 
-            # Use normalized text for header extraction, original text for table rows
-            curp = _m(_header["curp"], norm_text)
-            alumno = _m(_header["alumno"], norm_text)
-            control = _m(_header["control"], norm_text)
-            plan = _m(_header["plan"], norm_text)
-            carrera = _m(_header["carrera"], norm_text)
+        curp = _m(_header["curp"], norm_text)
+        alumno = _m(_header["alumno"], norm_text)
+        control = _m(_header["control"], norm_text)
+        plan = _m(_header["plan"], norm_text)
+        carrera = _m(_header["carrera"], norm_text)
+        plantel = _m(_header.get("plantel"), norm_text)
+        turno = _m(_header.get("turno"), norm_text)
+        clave_ct = _m(_header.get("clave_ct"), norm_text)
+        grupo = _m(_header.get("grupo"), norm_text)
+        generacion = _m(_header.get("generacion"), norm_text)
+        modalidad = _m(_header.get("modalidad"), norm_text)
+        promedio = float(_m(_header["promedio"], norm_text, "0"))
+        
+        m_av = _header["avance"].search(text)
+        a_obl, a_opt, a_tot = (
+            (int(m_av.group(1)), int(m_av.group(2)), int(m_av.group(3)))
+            if m_av
+            else (0, 0, 0)
+        )
 
-            # capture extra header fields
-            plantel = _m(_header.get("plantel"), norm_text)
-            turno = _m(_header.get("turno"), norm_text)
-            clave_ct = _m(_header.get("clave_ct"), norm_text)
-            grupo = _m(_header.get("grupo"), norm_text)
-            generacion = _m(_header.get("generacion"), norm_text)
-            modalidad = _m(_header.get("modalidad"), norm_text)
-            promedio = float(_m(_header["promedio"], norm_text, "0"))
+        # Inicialización y extracción de semestre (Corrige error de "not defined")
+        semestre_default = None
+        sm = _header["semestre"].search(text)
+        if sm:
+            try:
+                semestre_default = int(sm.group(1))
+            except Exception:
+                semestre_default = None
+        
+        # --- Lógica de Extracción de Tabla de Materias (usando extract_tables) ---
+        uac: List[UACItemDTO] = []
+        
+        # ⚠️ Verificación: Solo procesamos si se detectó una tabla
+        if tables and tables[0]:
+            raw_table = tables[0]
+            # Saltamos la fila de encabezados
+            data_rows = raw_table[1:]
 
-            # Fallback por línea para nombres que no se capturaron con la búsqueda global
-            if not alumno:
-                m_line = re.search(r"^\s*(?:Nombre del alumno|Nombre|Alumno|NOMBRE)\s*[:\-]?\s*(.+)$", norm_text, re.I | re.M)
-                if m_line:
-                    alumno = m_line.group(1).strip()
-
-            # Clean alumno field from trailing labels that sometimes follow on same line
-            if alumno:
-                # remove leading stray colons or extra text like 'MODALIDAD: BT' appended
-                alumno = re.sub(r"^[:\s-]+", "", alumno)
-                alumno = re.sub(r"\s*(?:MODALIDAD|GRUPO|TURNO|PLANTEL|CLAVE\s+DEL\s+CENTRO\s+DE\s+TRABAJO|GENERACION)\s*[:\-].*$", "", alumno, flags=re.I).strip()
-
-            # Limpieza y normalización del campo 'alumno'
-            if alumno:
-                # eliminar prefijos de dos puntos o guiones sobrantes
-                alumno = re.sub(r'^[\s\:\-\–]+', '', alumno).strip()
-                # si incluye etiquetas restantes como 'MODALIDAD' o 'PLANTEL', cortar ahí
-                alumno = re.split(r'\bMODALIDAD\b[:\s\-]*', alumno, flags=re.I)[0].strip()
-                alumno = re.split(r'\bPLANTEL\b[:\s\-]*', alumno, flags=re.I)[0].strip()
-                # colapsar espacios múltiples y limpiar espacios sobrantes
-                alumno = re.sub(r'\s{2,}', ' ', alumno).strip()
-
-            m_av = _header["avance"].search(text)
-            a_obl, a_opt, a_tot = (
-                (int(m_av.group(1)), int(m_av.group(2)), int(m_av.group(3)))
-                if m_av
-                else (0, 0, 0)
-            )
-
-            semestre_default = None
-            sm = _header["semestre"].search(text)
-            if sm:
-                try:
-                    semestre_default = int(sm.group(1))
-                except Exception:
-                    semestre_default = None
-
-            uac: List[UACItemDTO] = []
-            table_lines = _split_table_lines(text)
-
-            for ln in table_lines:
-                m = _row.match(ln)
-                if not m:
+            for row in data_rows:
+                # [CLAVE (0), NOMBRE (1), CALIF1 (2), CALIF2 (3), CALIF3 (4), ASIS1 (5), ASIS2 (6), ASIS3 (7)]
+                
+                # Verificación de longitud y datos mínimos
+                if len(row) < 8 or row[0] is None or row[1] is None:
                     continue
+                
+                # Asignación de celdas
+                clave = str(row[0]).strip()
+                nombre = str(row[1]).replace('\n', ' ').strip()
+                cal1_raw, cal2_raw, cal3_raw = row[2], row[3], row[4]
+                asis1_raw, asis2_raw, asis3_raw = row[5], row[6], row[7]
+                
+                # 🆕 CORRECCIÓN AGRESIVA 1: Limpieza final del nombre de la materia
+                # Eliminamos cualquier número o texto de firma que se haya filtrado en la celda [1]
+                
+                # 1. Busca secuencias de tokens de datos (Números, AC/NA) pegadas al final del nombre.
+                # 2. Busca texto de firma (Director) que pudo haberse fusionado.
+                DATA_OR_FOOTER_PATTERN = r"(\s+[\d\.]+|\s+AC|\s+NA){1,}\s*(VIRGINIA PÉREZ HERRERA.|DIRECTOR DEL PLANTEL.|1 de 1)?$"
+                
+                nombre = re.sub(DATA_OR_FOOTER_PATTERN, "", nombre, flags=re.I).strip()
+                nombre = re.sub(r'\s{2,}', ' ', nombre).strip() # Colapsar espacios extra
+                
+                # --- Funciones de Conversión ---
+                def to_float_or_str(val):
+                    # 💡 Si la celda está vacía o es None, devolvemos None
+                    if val is None or not str(val).strip(): return None
+                    val = str(val).strip()
+                    try:
+                        return float(val)
+                    except ValueError:
+                        # Devuelve la cadena (ej. 'AC', 'NA')
+                        return val
 
-                clave = m.group(1).strip()
-                rest = m.group(2).strip()
+                def to_int_or_none(val):
+                    if val is None or not str(val).strip().isdigit(): return None
+                    return int(val)
+                
+                # Aplicación de Conversión
+                cal1 = to_float_or_str(cal1_raw)
+                cal2 = to_float_or_str(cal2_raw)
+                cal3 = to_float_or_str(cal3_raw)
+                
+                asis1 = to_int_or_none(asis1_raw)
+                asis2 = to_int_or_none(asis2_raw)
+                asis3 = to_int_or_none(asis3_raw)
 
-                # Strip up to 6 trailing tokens that look like attendance (AC/NA) or numbers
-                nombre = re.sub(r"(?:\s+(?:AC|NA|\d+(?:\.\d+)?)){1,6}\s*$", "", rest, flags=re.I).strip()
-
-                # Tokenize trailing section to detect attendance (AC/NA) and numeric grades
-                # Include accented letters in token matching so subject names and tokens are captured.
-                tokens = re.findall(r"[A-Za-zÁÉÍÓÚÑáéíóúñ]+|\d+(?:\.\d+)?", rest, flags=re.I)
-
-                # collect trailing tokens (max 6): prefer to read at end of line
-                trailing = tokens[-6:] if tokens else []
-
-                # classify tokens into numbers vs letters
-                nums = [float(t) for t in trailing if re.fullmatch(r"\d+(?:\.\d+)?", t)]
-                lets = [t for t in trailing if not re.fullmatch(r"\d+(?:\.\d+)?", t)]
-
-                # default values
-                cal1 = cal2 = cal3 = None
-                as1 = as2 = as3 = None
+                # Lógica de acreditado
                 acreditado = None
-
-                # Heuristics:
-                # - If pattern is LET LET LET NUM NUM NUM -> attendance then grades
-                # - If all NUM x6 -> first 3 = grades, last 3 = attendance (numeric)
-                # - If mixed, assign numeric tokens to grades in order and letters to attendance
-                if len(trailing) >= 6 and all(re.fullmatch(r"[A-Za-zÁÉÍÓÚÑáéíóúñ]+", t, flags=re.I) for t in trailing[:3]) and all(re.fullmatch(r"\d+(?:\.\d+)?", t) for t in trailing[3:6]):
-                    # Pattern: LETTER LETTER LETTER NUM NUM NUM
-                    # According to header layout: first three are grades (may be 'AC'/'NA'), last three are attendance
-                    cal1, cal2, cal3 = trailing[0], trailing[1], trailing[2]
-                    as1, as2, as3 = [int(float(x)) for x in trailing[3:6]]
-                elif len(trailing) >= 6 and all(re.fullmatch(r"\d+(?:\.\d+)?", t) for t in trailing[:6]):
-                    # All numeric: first three califs, last three attendance counts
-                    cal1, cal2, cal3 = [float(x) for x in trailing[:3]]
-                    as1, as2, as3 = [int(float(x)) for x in trailing[3:6]]
-                else:
-                    # assign numbers in order to cal1..3
-                    if nums:
-                        if len(nums) >= 1:
-                            cal1 = float(nums[0])
-                        if len(nums) >= 2:
-                            cal2 = float(nums[1])
-                        if len(nums) >= 3:
-                            cal3 = float(nums[2])
-                    # assign letters to attendance in order
-                    if lets:
-                        if len(lets) >= 1:
-                            # if letters like AC/NA appear here, they are likely grades
-                            as1 = None
-                        if len(lets) >= 2:
-                            as2 = None
-                        if len(lets) >= 3:
-                            as3 = None
-
-                # derive a simple 'acreditado' flag when letters AC/NA are present
-                if any(x in ("AC","NA") for x in [as1, as2, as3] if x):
-                    # Per your note: AC = No Acreditado, NA = Acreditado
-                    # If any period is 'AC' we mark acreditado=False; if at least one 'NA' and no 'AC', True
-                    vals = [x for x in (as1, as2, as3) if x]
-                    if any(v == "AC" for v in vals):
-                        acreditado = False
-                    elif any(v == "NA" for v in vals):
+                if any(x in ("AC","NA") for x in [cal1, cal2, cal3] if isinstance(x, str)):
+                    if any(v == "AC" for v in [cal1, cal2, cal3] if isinstance(v, str)):
                         acreditado = True
-
-                suf = re.search(r"-([A-Za-z0-9]+)$", clave)
-                tipo_uac_val = suf.group(1) if suf else ""
-
+                    elif any(v == "NA" for v in [cal1, cal2, cal3] if isinstance(v, str)):
+                        acreditado = False
+                
+                # Asignación de semestre
                 semestre_val = semestre_default if semestre_default is not None else 0
-
-                # pick legacy final grade if present (prefer cal3, else last numeric)
-                final_cal = None
-                if cal3 is not None:
-                    final_cal = cal3
-                else:
-                    nums_all = [float(n) for n in re.findall(r"\d+(?:\.\d+)?", rest)]
-                    final_cal = nums_all[-1] if nums_all else None
 
                 uac.append(
                     UACItemDTO(
@@ -263,32 +182,28 @@ class LocalReportCardParser(IReportCardParser):
                         clave_uac=clave,
                         semestre=int(semestre_val),
                         nombre=nombre,
-                        calif1=cal1,
-                        calif2=cal2,
-                        calif3=cal3,
-                        asis1=as1,
-                        asis2=as2,
-                        asis3=as3,
+                        calif1=cal1, calif2=cal2, calif3=cal3,
+                        asis1=asis1, asis2=asis2, asis3=asis3,
                         acreditado=acreditado,
                     )
                 )
 
-            if not (curp or alumno or control or plan or carrera or uac):
-                continue
+        if not (curp or alumno or control or plan or carrera or uac):
+            return results
 
-            results.append(
-                ReportCardDTO(
-                    curp=curp,
-                    alumno=alumno,
-                    numero_control=control,
-                    plan_estudios=plan,
-                    carrera=carrera,
-                    avance_oblig=a_obl,
-                    avance_opt=a_opt,
-                    avance_total=a_tot,
-                    promedio=promedio,
-                    uac=uac,
-                )
+        results.append(
+            ReportCardDTO(
+                curp=curp,
+                alumno=alumno,
+                numero_control=control,
+                plan_estudios=plan,
+                carrera=carrera,
+                avance_oblig=a_obl,
+                avance_opt=a_opt,
+                avance_total=a_tot,
+                promedio=promedio,
+                uac=uac,
             )
+        )
 
         return results
