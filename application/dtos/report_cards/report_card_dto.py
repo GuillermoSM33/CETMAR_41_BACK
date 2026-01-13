@@ -1,16 +1,23 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Union
 
 class UACItemDTO(BaseModel):
     plantel: str
-    tipo_uac: str
     clave_uac: str
     semestre: int
     nombre: str
-    calif: Optional[float]  
-    horas_sem: int
-    creditos: Optional[int] 
-    periodo: str            
+    # Per-period grades (may be numeric or codes like 'AC'/'NA')
+    calif1: Optional[Union[float, str]]
+    calif2: Optional[Union[float, str]]
+    calif3: Optional[Union[float, str]]
+
+    # Per-period attendance (numeric counts as ints or strings)
+    asis1: Optional[Union[int, str]]
+    asis2: Optional[Union[int, str]]
+    asis3: Optional[Union[int, str]]
+
+    # Derived accreditation: True if accredited, False if not, else None
+    acreditado: Optional[bool]
 
 class ReportCardDTO(BaseModel):
     curp: str

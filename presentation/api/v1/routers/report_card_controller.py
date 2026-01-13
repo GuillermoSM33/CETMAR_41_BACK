@@ -1,4 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
+from fastapi.responses import FileResponse
 from typing import List
 from sqlalchemy.orm import Session, joinedload
 import hashlib
@@ -23,6 +24,55 @@ async def parse_report_card_many(
     parser: IReportCardParser = Depends(get_parser),
     db: Session = Depends(get_db),
 ):
+    all_saved_results = []
+
+    for file in files:
+        try:
+            # Leer contenido de forma asíncrona
+            content = await file.read()
+            if not content:
+                continue
+                
+            sha256 = hashlib.sha256(content).hexdigest()
+            
+            # Resetear stream para el parser
+            pdf_stream = io.BytesIO(content)
+            results = parser.parse_many(pdf_stream)
+
+            if not results:
+                print(f"No se detectaron alumnos en el archivo: {file.filename}")
+                continue
+
+            # Se envuelven errores específicos del servicio para no detener el lote
+            try:
+                saved = save_parsed_report_cards(db, results, sha256, content)
+                all_saved_results.extend(saved)
+            except Exception as e:
+                print(f"Error guardando datos de {file.filename}: {e}")
+                
+        except Exception as e:
+            print(f"Error procesando PDF {file.filename}: {e}")
+            continue # Pasar al siguiente archivo del lote
+
+    if not all_saved_results:
+        raise HTTPException(status_code=422, detail="No se pudo procesar ningún documento del lote.")
+
+    return all_saved_results
+
+
+@router.get("/{report_card_id}", response_model=StoredReportCardDTO)
+def get_report_card(report_card_id: int, db: Session = Depends(get_db)):
+    try:
+        dto = get_stored_report_card(db, report_card_id)
+        return dto
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Report card no encontrada")
+    
+@router.get("/download/{control_number}")
+async def download_report_card(control_number: str):
+    """
+    Endpoint para que el estudiante descargue su boleta sellada mediante su número de control.
+    """
     try:
         file.file.seek(0)
         content = file.file.read()
