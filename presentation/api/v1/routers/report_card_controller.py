@@ -1,15 +1,17 @@
-import hashlib
-import io
-from typing import List
-
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
-from sqlalchemy.orm import Session
+from fastapi.responses import FileResponse
+from typing import List
+from sqlalchemy.orm import Session, joinedload
+import hashlib
 
-from application.dtos.report_cards.report_card_response_dto import StoredReportCardDTO
+from application.dtos.report_cards.report_card_dto import ReportCardDTO
+from application.dtos.report_cards.report_card_response_dto import StoredReportCardDTO, StoredUACItemDTO
 from application.interfaces.report_cards.report_card_parser import IReportCardParser
 from infrastructure.parsers.report_cards.local_report_card_parser import LocalReportCardParser
 from infrastructure.persistence.repositories.db import get_db
-from application.services.report_card_service import save_parsed_report_cards, get_stored_report_card
+from infrastructure.persistence.models.report_card_model import ReportCardModel
+from application.services.report_card_service import save_parsed_report_cards, get_stored_report_card, get_report
+import io
 
 router = APIRouter()
 
@@ -58,15 +60,6 @@ async def parse_report_card_many(
 
     return all_saved_results
 
-
-@router.get("/download/{control_number}")
-async def download_report_card(control_number: str):
-    """
-    Endpoint para que el estudiante descargue su boleta sellada mediante su número de control.
-    """
-    raise HTTPException(status_code=501, detail="Endpoint no implementado")
-
-
 @router.get("/{report_card_id}", response_model=StoredReportCardDTO)
 def get_report_card(report_card_id: int, db: Session = Depends(get_db)):
     try:
@@ -74,3 +67,33 @@ def get_report_card(report_card_id: int, db: Session = Depends(get_db)):
         return dto
     except KeyError:
         raise HTTPException(status_code=404, detail="Report card no encontrada")
+
+@router.get("/download/{control_number}")
+async def download_report_card(control_number: str):
+    """
+    Endpoint para que el estudiante descargue su boleta sellada mediante su número de control.
+    """
+    try:
+        # Obtener la ruta del archivo desde el servicio
+        file_path = get_report(control_number)
+        
+        if not file_path:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"No se encontró ninguna boleta para el número de control: {control_number}. "
+                       f"Asegúrate de que el documento haya sido procesado previamente."
+            )
+
+        # Retornar el archivo PDF
+        # media_type='application/pdf' permite que se abra en el visor del navegador
+        return FileResponse(
+            path=file_path,
+            media_type='application/pdf',
+            filename=f"Boleta_{control_number}.pdf"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error en la descarga del archivo: {e}")
+        raise HTTPException(status_code=500, detail="Error interno al intentar recuperar el archivo.")
