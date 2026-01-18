@@ -20,6 +20,7 @@ class IdentityModel(Base):
     Student_Identity: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     Teacher_Identity: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     Management_Admin_Identity: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    Grupo: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     Schedule: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
     Major: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
 

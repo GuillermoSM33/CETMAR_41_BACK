@@ -10,7 +10,7 @@ router = APIRouter()
 
 @router.get("/students", response_model=List[GetStudentDetailDTO])
 def get_all_students(db: Session = Depends(get_db)):
-    return get_all_students_service(db, "student")
+    return get_all_students_service(db, "Student")
 
 
 @router.put("/students/{user_id}", response_model=UpdateStudentDTO)

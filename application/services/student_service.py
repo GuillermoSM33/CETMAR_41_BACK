@@ -23,7 +23,7 @@ def import_students_from_csv(db: Session, file_bytes: bytes, create_auth: bool =
     """Import students from CSV bytes.
 
     Expected headers (case-insensitive):
-      - Nombre, Correo, Matrícula, Número De Control, Curp, Grupo, Carrera, Horario
+      - Nombres, Apellido Paterno, Apellido Materno, Correo, Teléfono, Número De Control, Curp, Grupo, Carrera, Horario
 
     Returns a list with per-row status and created IDs.
     """
@@ -43,7 +43,9 @@ def import_students_from_csv(db: Session, file_bytes: bytes, create_auth: bool =
         # Normalize keys to lowercase
         row_norm = {(k or "").strip().lower(): (v.strip() if v is not None else "") for k, v in row.items()}
 
-        nombre = row_norm.get("nombre") or row_norm.get("name")
+        nombres = row_norm.get("nombres") or row_norm.get("names")
+        apellido_paterno = row_norm.get("apellido paterno") or row_norm.get("apellido_paterno")
+        apellido_materno = row_norm.get("apellido materno") or row_norm.get("apellido_materno")
         correo = row_norm.get("correo") or row_norm.get("email")
         correo_l = correo.lower() if correo else None
         matricula = row_norm.get("matrícula") or row_norm.get("matricula")
@@ -88,7 +90,7 @@ def import_students_from_csv(db: Session, file_bytes: bytes, create_auth: bool =
                 identity = IdentityModel(
                     Student_Control_Number=numero_control or f"unknown-{matricula or ''}",
                     CURP=curp or None,
-                    Full_Name=nombre or None,
+                    Full_Name=f"{nombres or ''} {apellido_paterno or ''} {apellido_materno or ''}".strip() or None,
                     Grupo=grupo or None,
                     Student_Identity=mat_int,
                     Schedule=horario or None,
@@ -109,8 +111,8 @@ def import_students_from_csv(db: Session, file_bytes: bytes, create_auth: bool =
                         updated = True
                     except Exception:
                         pass
-                if nombre and not identity.Full_Name:
-                    identity.Full_Name = nombre
+                if nombres and not identity.Full_Name:
+                    identity.Full_Name = f"{nombres or ''} {apellido_paterno or ''} {apellido_materno or ''}".strip()
                     updated = True
                 if updated:
                     db.add(identity)
@@ -121,7 +123,7 @@ def import_students_from_csv(db: Session, file_bytes: bytes, create_auth: bool =
                 user = db.query(UserModel).filter(func.lower(UserModel.User_Email) == correo_l).first()
                 if not user:
                     user = UserModel(
-                        User_Name=nombre or correo_l,
+                        User_Name=f"{nombres or ''} {apellido_paterno or ''} {apellido_materno or ''}".strip() or correo_l,
                         User_Email=correo_l,
                         FK_Rol_ID=student_role.Id,
                         Telephone=telephone_value,
@@ -148,8 +150,8 @@ def import_students_from_csv(db: Session, file_bytes: bytes, create_auth: bool =
                         user.FK_Identity_ID = identity.Id
                         updated_user = True
                     # update name if missing or different
-                    if nombre and (not user.User_Name or user.User_Name.strip() != nombre.strip()):
-                        user.User_Name = nombre
+                    if nombres and (not user.User_Name or user.User_Name.strip() != f"{nombres or ''} {apellido_paterno or ''} {apellido_materno or ''}".strip()):
+                        user.User_Name = f"{nombres or ''} {apellido_paterno or ''} {apellido_materno or ''}".strip()
                         updated_user = True
 
                     if updated_user:
@@ -178,7 +180,7 @@ def import_students_from_csv(db: Session, file_bytes: bytes, create_auth: bool =
 def get_all_students_service(db: Session, role_name: str) -> List[GetStudentDetailDTO]:
     
     # 1. Buscar el Role ID
-    role = db.query(RoleModel).filter(RoleModel.Role_Name == role_name).first()
+    role = db.query(RoleModel).filter(func.lower(RoleModel.Role_Name) == role_name.lower()).first()
     if not role:
         return []
     
@@ -214,7 +216,7 @@ def get_all_students_service(db: Session, role_name: str) -> List[GetStudentDeta
             CURP=identity_data.CURP if identity_data else None,
             
             # Grupo / Carrera
-            Grupo=identity_data.Group if identity_data and hasattr(identity_data, 'Group') else None,
+            Grupo=identity_data.Grupo if identity_data and hasattr(identity_data, 'Grupo') else None,
             Carrera=identity_data.Major if identity_data and hasattr(identity_data, 'Major') else None,
         )
         result_dtos.append(dto)
