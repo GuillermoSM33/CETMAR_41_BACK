@@ -48,6 +48,7 @@ def import_students_from_csv(db: Session, file_bytes: bytes, create_auth: bool =
         apellido_materno = row_norm.get("apellido materno") or row_norm.get("apellido_materno")
         correo = row_norm.get("correo") or row_norm.get("email")
         correo_l = correo.lower() if correo else None
+        # legacy field (no longer persisted as Student_Identity)
         matricula = row_norm.get("matrícula") or row_norm.get("matricula")
         numero_control = row_norm.get("número de control") or row_norm.get("numero de control") or row_norm.get("numero_control")
         curp = row_norm.get("curp")
@@ -79,20 +80,11 @@ def import_students_from_csv(db: Session, file_bytes: bytes, create_auth: bool =
 
         try:
             if not identity:
-                # convert matricula to int when possible
-                mat_int: Optional[int] = None
-                if matricula:
-                    try:
-                        mat_int = int(matricula)
-                    except Exception:
-                        mat_int = None
-
                 identity = IdentityModel(
-                    Student_Control_Number=numero_control or f"unknown-{matricula or ''}",
+                    Student_Control_Number=numero_control or f"unknown-{correo_l or ''}",
                     CURP=curp or None,
                     Full_Name=f"{nombres or ''} {apellido_paterno or ''} {apellido_materno or ''}".strip() or None,
                     Grupo=grupo or None,
-                    Student_Identity=mat_int,
                     Schedule=horario or None,
                     Major=carrera or None,
                 )
@@ -102,15 +94,12 @@ def import_students_from_csv(db: Session, file_bytes: bytes, create_auth: bool =
 
             else:
                 updated = False
+                if numero_control and not identity.Student_Control_Number:
+                    identity.Student_Control_Number = numero_control
+                    updated = True
                 if grupo and not identity.Grupo:
                     identity.Grupo = grupo
                     updated = True
-                if matricula and not identity.Student_Identity:
-                    try:
-                        identity.Student_Identity = int(matricula)
-                        updated = True
-                    except Exception:
-                        pass
                 if nombres and not identity.Full_Name:
                     identity.Full_Name = f"{nombres or ''} {apellido_paterno or ''} {apellido_materno or ''}".strip()
                     updated = True
@@ -211,7 +200,7 @@ def get_all_students_service(db: Session, role_name: str) -> List[GetStudentDeta
             
             # Campos de IdentityModel (Añadidos en GetStudentDetailDTO)
             # Nota: Si los nombres de los campos en IdentityModel son diferentes, ajusta aquí:
-            Matricula=identity_data.Student_Identity if identity_data and hasattr(identity_data, 'Student_Identity') else None,
+            Matricula=None,
             Numero_Control=identity_data.Student_Control_Number if identity_data else None,
             CURP=identity_data.CURP if identity_data else None,
             
