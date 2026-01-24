@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from application.dtos.students.get_student_dto import GetStudentDetailDTO
 from application.dtos.students.update_student_dto import UpdateStudentDTO
 from infrastructure.persistence.repositories.db import get_db
-from application.services.student_service import import_students_from_csv, get_all_students_service, update_student_service
+from application.services.student_service import import_students_from_csv, get_all_students_service, import_students_from_xls, update_student_service
 from typing import List, Any
 
 router = APIRouter()
@@ -18,12 +18,12 @@ def update_student(user_id: int, student_data: UpdateStudentDTO, db: Session = D
     return update_student_service(db, user_id, student_data)
 
 
-@router.post("/students/import_csv")
-async def import_students_csv(file: UploadFile = File(...), db: Session = Depends(get_db)):
+@router.post("/students/import_xls")
+async def import_students_xls(file: UploadFile = File(...), db: Session = Depends(get_db)):
     try:
         file.file.seek(0)
         content = file.file.read()
-        results = import_students_from_csv(db, content, create_auth=False)
+        results = import_students_from_xls(db, content, create_auth=False)
         return results
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error importing CSV: {e}")
+        raise HTTPException(status_code=400, detail=f"Error importing XLS: {e}")

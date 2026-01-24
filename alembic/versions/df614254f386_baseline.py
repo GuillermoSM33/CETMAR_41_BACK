@@ -1,8 +1,8 @@
-"""add missing fields
+"""baseline
 
-Revision ID: 69042d3fb7b8
-Revises: ff82e1a76907
-Create Date: 2026-01-17 21:20:33.882833
+Revision ID: df614254f386
+Revises: 
+Create Date: 2026-01-24 18:07:37.191319
 
 """
 from typing import Sequence, Union
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '69042d3fb7b8'
-down_revision: Union[str, Sequence[str], None] = 'ff82e1a76907'
+revision: str = 'df614254f386'
+down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

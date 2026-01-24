@@ -18,8 +18,9 @@ from typing import List, Any
 def _hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
+""" Import Students from xls """
 
-def import_students_from_csv(db: Session, file_bytes: bytes, create_auth: bool = False, default_password: str = "123456") -> List[Dict[str, Any]]:
+def import_students_from_xls(db: Session, file_bytes: bytes, create_auth: bool = False, default_password: str = "123456") -> List[Dict[str, Any]]:
     """Import students from CSV bytes.
 
     Expected headers (case-insensitive):
@@ -48,8 +49,6 @@ def import_students_from_csv(db: Session, file_bytes: bytes, create_auth: bool =
         apellido_materno = row_norm.get("apellido materno") or row_norm.get("apellido_materno")
         correo = row_norm.get("correo") or row_norm.get("email")
         correo_l = correo.lower() if correo else None
-        # legacy field (no longer persisted as Student_Identity)
-        matricula = row_norm.get("matrícula") or row_norm.get("matricula")
         numero_control = row_norm.get("número de control") or row_norm.get("numero de control") or row_norm.get("numero_control")
         curp = row_norm.get("curp")
         grupo = row_norm.get("grupo")

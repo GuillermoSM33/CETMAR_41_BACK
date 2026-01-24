@@ -16,6 +16,8 @@ class IdentityModel(Base):
     Student_Control_Number: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
     CURP: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, unique=True)
     Full_Name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    Midle_Name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    Last_Name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
     Teacher_Identity: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     Schoolar_Control_Identity: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
@@ -24,6 +26,9 @@ class IdentityModel(Base):
     Grupo: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     Schedule: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
     Major: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    IsRegular: Mapped[Optional[bool]] = mapped_column(nullable=True, default=True)
+    IsLeave: Mapped[Optional[bool]] = mapped_column(nullable=True, default=False)
+    Gender: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
 
     users: Mapped[List["UserModel"]] = relationship("UserModel", back_populates="identity")
     report_cards: Mapped[List["ReportCardModel"]] = relationship("ReportCardModel", back_populates="identity")
