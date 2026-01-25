@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from application.dtos.students.get_student_dto import GetStudentDetailDTO
 from application.dtos.students.update_student_dto import UpdateStudentDTO
 from infrastructure.persistence.repositories.db import get_db
-from application.services.student_service import import_students_from_csv, get_all_students_service, import_students_from_xls, update_student_service
+from application.services.student_service import import_students_from_xls, get_all_students_service, import_students_from_xls, update_student_service
 from typing import List, Any
 
 router = APIRouter()
