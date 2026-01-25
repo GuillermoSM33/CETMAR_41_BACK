@@ -7,6 +7,8 @@ from application.dtos.counters.counter_dto import (
     SimpleCounterDTO,
     AverageCounterDTO,
     CareerDistributionDTO,
+    GenderDistributionDTO,
+    RegularityDistributionDTO,
 )
 
 router = APIRouter()
@@ -31,21 +33,13 @@ def get_institutional_average(db: Session = Depends(get_db)):
 def get_inactive_students(db: Session = Depends(get_db)):
     return CounterService.get_inactive_students(db)
 
-@router.get("/students/gender/male", response_model=SimpleCounterDTO)
-def get_male_students(db: Session = Depends(get_db)):
-    return CounterService.get_male_students(db)
+@router.get("/students/gender", response_model=GenderDistributionDTO)
+def get_students_by_gender(db: Session = Depends(get_db)):
+    return CounterService.get_students_by_gender(db)
 
-@router.get("/students/gender/female", response_model=SimpleCounterDTO)
-def get_female_students(db: Session = Depends(get_db)):
-    return CounterService.get_female_students(db)
-
-@router.get("/students/regular", response_model=SimpleCounterDTO)
-def get_regular_students(db: Session = Depends(get_db)):
-    return CounterService.get_regular_students(db)
-
-@router.get("/students/irregular", response_model=SimpleCounterDTO)
-def get_irregular_students(db: Session = Depends(get_db)):
-    return CounterService.get_irregular_students(db)
+@router.get("/students/regularity", response_model=RegularityDistributionDTO)
+def get_students_by_regularity(db: Session = Depends(get_db)):
+    return CounterService.get_students_by_regularity(db)
 
 @router.get("/students/by-career", response_model=CareerDistributionDTO)
 def get_students_by_career(db: Session = Depends(get_db)):

@@ -28,23 +28,19 @@ class CounterRepository:
         return db.query(IdentityModel).filter(IdentityModel.IsLeave == True).count()
 
     @staticmethod
-    def get_male_students_count(db: Session) -> int:
-        return db.query(IdentityModel).filter(IdentityModel.Gender == 'M').count()
+    def get_students_by_gender(db: Session) -> dict:
+        male = db.query(IdentityModel).filter(IdentityModel.Gender == 'M').count()
+        female = db.query(IdentityModel).filter(IdentityModel.Gender == 'F').count()
+        return {"male": male, "female": female}
 
     @staticmethod
-    def get_female_students_count(db: Session) -> int:
-        return db.query(IdentityModel).filter(IdentityModel.Gender == 'F').count()
+    def get_students_by_regularity(db: Session) -> dict:
+        regular = db.query(IdentityModel).filter(IdentityModel.IsRegular == True).count()
+        irregular = db.query(IdentityModel).filter(IdentityModel.IsRegular == False).count()
+        return {"regular": regular, "irregular": irregular}
 
     @staticmethod
-    def get_regular_students_count(db: Session) -> int:
-        return db.query(IdentityModel).filter(IdentityModel.IsRegular == True).count()
-
-    @staticmethod
-    def get_irregular_students_count(db: Session) -> int:
-        return db.query(IdentityModel).filter(IdentityModel.IsRegular == False).count()
-
-    @staticmethod
-    def get_students_by_career(db: Session) -> List[Dict]:
+    def get_students_by_career(db: Session) -> list:
         results = db.query(IdentityModel.Major, func.count(IdentityModel.Id)).group_by(IdentityModel.Major).all()
         return [{"major": r[0], "count": r[1]} for r in results]
 
@@ -68,10 +64,8 @@ class CounterRepository:
             "processed_report_cards": CounterRepository.get_processed_report_cards_count(db),
             "institutional_average": CounterRepository.get_institutional_average(db),
             "inactive_students": CounterRepository.get_inactive_students_count(db),
-            "male_students": CounterRepository.get_male_students_count(db),
-            "female_students": CounterRepository.get_female_students_count(db),
-            "regular_students": CounterRepository.get_regular_students_count(db),
-            "irregular_students": CounterRepository.get_irregular_students_count(db),
+            "students_by_gender": CounterRepository.get_students_by_gender(db),
+            "students_by_regularity": CounterRepository.get_students_by_regularity(db),
             "students_by_career": CounterRepository.get_students_by_career(db),
             "registered_users": CounterRepository.get_registered_users_count(db),
             "active_events": CounterRepository.get_active_events_count(db),

@@ -37,3 +37,15 @@ class AllCountersDTO(BaseModel):
     uploaded_report_cards: int
     class Config:
         orm_mode = True
+
+class GenderDistributionDTO(BaseModel):
+    male: int
+    female: int
+    class Config:
+        orm_mode = True
+
+class RegularityDistributionDTO(BaseModel):
+    regular: int
+    irregular: int
+    class Config:
+        orm_mode = True
