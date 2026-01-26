@@ -3,6 +3,7 @@ from presentation.api.v1.routers import user_controller
 from presentation.api.v1.routers import auth_controller
 from presentation.api.v1.routers import student_controller
 from presentation.api.v1.routers import report_card_controller
+from presentation.api.v1.routers import counter_controller
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(swagger_ui_parameters={"syntaxHighlight": False})
@@ -32,3 +33,7 @@ app.include_router(student_controller.router, tags=["Students"])
 """ Sección de reportes """
 
 app.include_router(report_card_controller.router, prefix="/report_card", tags=["Report Cards"])
+
+""" Sección de contadores y estadísticas """
+
+app.include_router(counter_controller.router, prefix="/counters", tags=["Counters"])
