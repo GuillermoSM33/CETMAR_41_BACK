@@ -6,7 +6,7 @@ class CreateUserDTO(BaseModel):
     User_Name: str
     User_Email: str
     Telephone: int
-    Teacher_Identity: int
+    Linkage_Identity: int
     Management_Admin_Identity: int
     Schedule: str
     Major: str
