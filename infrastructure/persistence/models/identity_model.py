@@ -19,7 +19,7 @@ class IdentityModel(Base):
     Midle_Name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     Last_Name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
-    Teacher_Identity: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    Linkage_Identity: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     Schoolar_Control_Identity: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     Director_Identity: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     Management_Admin_Identity: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
