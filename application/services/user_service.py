@@ -20,7 +20,7 @@ def create_user_service(db: Session, user_data: CreateUserDTO) -> UserModel:
             Student_Control_Number=user_data.Student_Control_Number,
             CURP=user_data.CURP,
             Full_Name=user_data.Full_Name,
-            Teacher_Identity=user_data.Teacher_Identity,
+            Linkage_Identity=user_data.Linkage_Identity,
             Schoolar_Control_Identity=user_data.Schoolar_Control_Identity,
             Director_Identity=user_data.Director_Identity,
             Management_Admin_Identity=user_data.Management_Admin_Identity,
@@ -36,7 +36,7 @@ def create_user_service(db: Session, user_data: CreateUserDTO) -> UserModel:
             User_Email=user_data.User_Email,
             Telephone=int(user_data.Telephone),
             FK_Rol_ID=user_data.FK_Rol_ID,
-            FK_Identity_ID=new_identity.Id,
+            identity=new_identity,
         )
         db.add(new_user)
         db.commit()
