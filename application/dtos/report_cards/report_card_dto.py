@@ -20,13 +20,22 @@ class UACItemDTO(BaseModel):
     acreditado: Optional[bool]
 
 class ReportCardDTO(BaseModel):
+    periodo: str
+    turno: str
+    grupo: str
+    plantel: str
+    clave_ct: str
     curp: str
     alumno: str
     numero_control: str
     plan_estudios: str
     carrera: str
+    generacion: Optional[str] = None
+    modalidad: Optional[str] = None
+    semestre: Optional[int] = None
     avance_oblig: int
     avance_opt: int
     avance_total: int
     promedio: float
     uac: List[UACItemDTO]
+
