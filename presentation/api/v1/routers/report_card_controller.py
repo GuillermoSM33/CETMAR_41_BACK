@@ -10,7 +10,8 @@ from application.interfaces.report_cards.report_card_parser import IReportCardPa
 from infrastructure.parsers.report_cards.local_report_card_parser import LocalReportCardParser
 from infrastructure.persistence.repositories.db import get_db
 from infrastructure.persistence.models.report_card_model import ReportCardModel
-from application.services.report_card_service import save_parsed_report_cards, get_stored_report_card
+from application.services.report_card_service import save_parsed_report_cards, get_stored_report_card, get_report
+import io
 
 router = APIRouter()
 
@@ -20,7 +21,7 @@ def get_parser() -> IReportCardParser:
 
 @router.post("/parse_many", response_model=List[StoredReportCardDTO])
 async def parse_report_card_many(
-    file: UploadFile = File(...),
+    files: List[UploadFile] = File(...),
     parser: IReportCardParser = Depends(get_parser),
     db: Session = Depends(get_db),
 ):
@@ -59,7 +60,6 @@ async def parse_report_card_many(
 
     return all_saved_results
 
-
 @router.get("/{report_card_id}", response_model=StoredReportCardDTO)
 def get_report_card(report_card_id: int, db: Session = Depends(get_db)):
     try:
@@ -67,39 +67,33 @@ def get_report_card(report_card_id: int, db: Session = Depends(get_db)):
         return dto
     except KeyError:
         raise HTTPException(status_code=404, detail="Report card no encontrada")
-    
+
 @router.get("/download/{control_number}")
 async def download_report_card(control_number: str):
     """
     Endpoint para que el estudiante descargue su boleta sellada mediante su número de control.
     """
     try:
-        file.file.seek(0)
-        content = file.file.read()
-        sha256 = hashlib.sha256(content).hexdigest()
-        file.file.seek(0)
+        # Obtener la ruta del archivo desde el servicio
+        file_path = get_report(control_number)
+        
+        if not file_path:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"No se encontró ninguna boleta para el número de control: {control_number}. "
+                       f"Asegúrate de que el documento haya sido procesado previamente."
+            )
 
-        results = parser.parse_many(file.file)
-        if not results:
-            raise HTTPException(status_code=422, detail="No se detectó ningún alumno en el PDF.")
-        try:
-            saved = save_parsed_report_cards(db, results, sha256)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error guardando boletas: {e}")
+        # Retornar el archivo PDF
+        # media_type='application/pdf' permite que se abra en el visor del navegador
+        return FileResponse(
+            path=file_path,
+            media_type='application/pdf',
+            filename=f"Boleta_{control_number}.pdf"
+        )
 
-        return saved
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error al procesar PDF: {e}")
-
-
-@router.get("/{report_card_id}", response_model=StoredReportCardDTO)
-def get_report_card(report_card_id: int, db: Session = Depends(get_db)):
-    try:
-        dto = get_stored_report_card(db, report_card_id)
-        return dto
-    except KeyError:
-        raise HTTPException(status_code=404, detail="Report card no encontrada")
+        print(f"Error en la descarga del archivo: {e}")
+        raise HTTPException(status_code=500, detail="Error interno al intentar recuperar el archivo.")

@@ -1,127 +1,167 @@
-import csv
 import io
 import re
 from typing import Any, Dict, List, Optional
 
 import bcrypt
+from openpyxl import load_workbook
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import joinedload
-from sqlalchemy import func
-from infrastructure.persistence.models.identity_model import IdentityModel
-from infrastructure.persistence.models.user_model import UserModel
-from infrastructure.persistence.models.role_model import RoleModel
-from infrastructure.persistence.models.auth_model import AuthModel
-from application.dtos.students.update_student_dto import UpdateStudentDTO
+
 from application.dtos.students.get_student_dto import GetStudentDetailDTO
-from typing import List, Any
+from application.dtos.students.update_student_dto import UpdateStudentDTO
+from infrastructure.persistence.models.auth_model import AuthModel
+from infrastructure.persistence.models.identity_model import IdentityModel
+from infrastructure.persistence.models.role_model import RoleModel
+from infrastructure.persistence.models.user_model import UserModel
 
 def _hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
+def _to_str(v: Any) -> str:
+    """Normalize excel cell value to safe string."""
+    if v is None:
+        return ""
+    if isinstance(v, float):
+        if v.is_integer():
+            return str(int(v))
+        return str(v)
+    return str(v).strip()
 
-def import_students_from_csv(db: Session, file_bytes: bytes, create_auth: bool = False, default_password: str = "123456") -> List[Dict[str, Any]]:
-    """Import students from CSV bytes.
 
-    Expected headers (case-insensitive):
-      - Nombre, Correo, Matrícula, Número De Control, Curp, Grupo, Carrera, Horario
+def _to_phone_int(v: Any) -> int:
+    s = _to_str(v)
+    if not s:
+        return 0
+    digits = re.sub(r"\D", "", s)
+    if not digits:
+        return 0
+    try:
+        return int(digits)
+    except Exception:
+        return 0
 
-    Returns a list with per-row status and created IDs.
-    """
-    text = file_bytes.decode("utf-8-sig")
-    reader = csv.DictReader(io.StringIO(text))
+def import_students_from_excel(
+    db: Session,
+    file_bytes: bytes,
+    create_auth: bool = False,
+    default_password: str = "123456",
+    sheet_name: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+
+    wb = load_workbook(filename=io.BytesIO(file_bytes), data_only=True)
+    ws = wb[sheet_name] if sheet_name else wb.active
+
+    headers = [_to_str(cell.value) for cell in ws[1]]
 
     results: List[Dict[str, Any]] = []
 
-    # Ensure student role exists
     student_role = db.query(RoleModel).filter(RoleModel.Role_Name == "Student").first()
     if not student_role:
         student_role = RoleModel(Role_Name="Student")
         db.add(student_role)
         db.commit()
 
-    for row in reader:
-        # Normalize keys to lowercase
-        row_norm = {(k or "").strip().lower(): (v.strip() if v is not None else "") for k, v in row.items()}
+    for row_values in ws.iter_rows(min_row=2, values_only=True):
+        row = dict(zip(headers, row_values))
 
-        nombre = row_norm.get("nombre") or row_norm.get("name")
+        row_norm = {
+            (k or "").strip().lower(): _to_str(v)
+            for k, v in row.items()
+        }
+
+        nombres = row_norm.get("nombres") or row_norm.get("names")
+        apellido_paterno = row_norm.get("apellido paterno") or row_norm.get("apellido_paterno")
+        apellido_materno = row_norm.get("apellido materno") or row_norm.get("apellido_materno")
         correo = row_norm.get("correo") or row_norm.get("email")
-        correo_l = correo.lower() if correo else None
-        matricula = row_norm.get("matrícula") or row_norm.get("matricula")
-        numero_control = row_norm.get("número de control") or row_norm.get("numero de control") or row_norm.get("numero_control")
+        correo_l = correo.lower().strip() if correo else None
+
+        numero_control = (
+            row_norm.get("número de control")
+            or row_norm.get("numero de control")
+            or row_norm.get("numero_control")
+        )
+
         curp = row_norm.get("curp")
         grupo = row_norm.get("grupo")
         carrera = row_norm.get("carrera")
         horario = row_norm.get("horario")
+
         telephone_default = row_norm.get("teléfono") or row_norm.get("telefono")
-        # convert telephone to int if possible
-        telephone_value: int = 0
-        if telephone_default:
-            try:
-                telephone_value = int(re.sub(r"\D", "", telephone_default))
-            except Exception:
-                try:
-                    telephone_value = int(telephone_default)
-                except Exception:
-                    telephone_value = 0
+        telephone_value = _to_phone_int(telephone_default)
 
         created_identity_id: Optional[int] = None
         created_user_id: Optional[int] = None
         status = "skipped"
 
-        # Find by control number or CURP
-        identity = None
+        identity: Optional[IdentityModel] = None
         if numero_control:
-            identity = db.query(IdentityModel).filter(IdentityModel.Student_Control_Number == numero_control).first()
+            identity = (
+                db.query(IdentityModel)
+                .filter(IdentityModel.Student_Control_Number == numero_control)
+                .first()
+            )
         if not identity and curp:
             identity = db.query(IdentityModel).filter(IdentityModel.CURP == curp).first()
 
         try:
             if not identity:
-                # convert matricula to int when possible
-                mat_int: Optional[int] = None
-                if matricula:
-                    try:
-                        mat_int = int(matricula)
-                    except Exception:
-                        mat_int = None
-
                 identity = IdentityModel(
-                    Student_Control_Number=numero_control or f"unknown-{matricula or ''}",
+                    Student_Control_Number=numero_control or f"unknown-{correo_l or ''}",
                     CURP=curp or None,
-                    Full_Name=nombre or None,
+                    Full_Name=f"{nombres or ''} {apellido_paterno or ''} {apellido_materno or ''}".strip() or None,
                     Grupo=grupo or None,
-                    Student_Identity=mat_int,
                     Schedule=horario or None,
                     Major=carrera or None,
                 )
                 db.add(identity)
                 db.flush()
                 created_identity_id = identity.Id
-
             else:
-                updated = False
-                if grupo and not identity.Grupo:
+                updated_identity = False
+
+                full_name = f"{nombres or ''} {apellido_paterno or ''} {apellido_materno or ''}".strip() or None
+
+                if numero_control and identity.Student_Control_Number != numero_control:
+                    identity.Student_Control_Number = numero_control
+                    updated_identity = True
+
+                if curp and identity.CURP != curp:
+                    identity.CURP = curp
+                    updated_identity = True
+
+                if grupo and identity.Grupo != grupo:
                     identity.Grupo = grupo
-                    updated = True
-                if matricula and not identity.Student_Identity:
-                    try:
-                        identity.Student_Identity = int(matricula)
-                        updated = True
-                    except Exception:
-                        pass
-                if nombre and not identity.Full_Name:
-                    identity.Full_Name = nombre
-                    updated = True
-                if updated:
+                    updated_identity = True
+
+                if horario and identity.Schedule != horario:
+                    identity.Schedule = horario
+                    updated_identity = True
+
+                if carrera and identity.Major != carrera:
+                    identity.Major = carrera
+                    updated_identity = True
+
+                if full_name and (not identity.Full_Name or identity.Full_Name.strip() != full_name):
+                    identity.Full_Name = full_name
+                    updated_identity = True
+
+                if updated_identity:
                     db.add(identity)
                     db.flush()
 
-            # create or find user if email provided
             if correo_l:
-                user = db.query(UserModel).filter(func.lower(UserModel.User_Email) == correo_l).first()
+                user = (
+                    db.query(UserModel)
+                    .filter(func.lower(UserModel.User_Email) == correo_l)
+                    .first()
+                )
+
+                full_name_user = f"{nombres or ''} {apellido_paterno or ''} {apellido_materno or ''}".strip() or correo_l
+
                 if not user:
                     user = UserModel(
-                        User_Name=nombre or correo_l,
+                        User_Name=full_name_user,
                         User_Email=correo_l,
                         FK_Rol_ID=student_role.Id,
                         Telephone=telephone_value,
@@ -137,19 +177,22 @@ def import_students_from_csv(db: Session, file_bytes: bytes, create_auth: bool =
                         db.add(auth)
                         db.flush()
                 else:
-                    # existing user found -> update fields if needed
                     updated_user = False
-                    # update telephone when provided
+
                     if telephone_value and (not user.Telephone or int(user.Telephone) != int(telephone_value)):
                         user.Telephone = telephone_value
                         updated_user = True
-                    # ensure FK_Identity_ID is set to this identity
+
                     if user.FK_Identity_ID != identity.Id:
                         user.FK_Identity_ID = identity.Id
                         updated_user = True
-                    # update name if missing or different
-                    if nombre and (not user.User_Name or user.User_Name.strip() != nombre.strip()):
-                        user.User_Name = nombre
+
+                    if user.FK_Rol_ID != student_role.Id:
+                        user.FK_Rol_ID = student_role.Id
+                        updated_user = True
+
+                    if full_name_user and (not user.User_Name or user.User_Name.strip() != full_name_user):
+                        user.User_Name = full_name_user
                         updated_user = True
 
                     if updated_user:
@@ -166,19 +209,21 @@ def import_students_from_csv(db: Session, file_bytes: bytes, create_auth: bool =
             results.append({"row": row, "status": "error", "error": str(e)})
             continue
 
-        results.append({
-            "row": row,
-            "status": status,
-            "identity_id": created_identity_id or (identity.Id if identity else None),
-            "user_id": created_user_id,
-        })
+        results.append(
+            {
+                "row": row,
+                "status": status,
+                "identity_id": created_identity_id or (identity.Id if identity else None),
+                "user_id": created_user_id,
+            }
+        )
 
     return results
 
 def get_all_students_service(db: Session, role_name: str) -> List[GetStudentDetailDTO]:
     
     # 1. Buscar el Role ID
-    role = db.query(RoleModel).filter(RoleModel.Role_Name == role_name).first()
+    role = db.query(RoleModel).filter(func.lower(RoleModel.Role_Name) == role_name.lower()).first()
     if not role:
         return []
     
@@ -209,12 +254,12 @@ def get_all_students_service(db: Session, role_name: str) -> List[GetStudentDeta
             
             # Campos de IdentityModel (Añadidos en GetStudentDetailDTO)
             # Nota: Si los nombres de los campos en IdentityModel son diferentes, ajusta aquí:
-            Matricula=identity_data.Student_Identity if identity_data and hasattr(identity_data, 'Student_Identity') else None,
+            Matricula=None,
             Numero_Control=identity_data.Student_Control_Number if identity_data else None,
             CURP=identity_data.CURP if identity_data else None,
             
             # Grupo / Carrera
-            Grupo=identity_data.Group if identity_data and hasattr(identity_data, 'Group') else None,
+            Grupo=identity_data.Grupo if identity_data and hasattr(identity_data, 'Grupo') else None,
             Carrera=identity_data.Major if identity_data and hasattr(identity_data, 'Major') else None,
         )
         result_dtos.append(dto)

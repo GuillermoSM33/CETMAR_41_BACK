@@ -76,6 +76,24 @@ Replace USERNAME, PASSWORD, SERVERNAME, DBNAME with your own values.
 
 The project uses Alembic for database migrations.
 
+## Reset migrations (create schema from 0)
+
+If you want to rebuild the database schema from scratch (recommended when you reset Alembic history):
+
+1. Create a **new empty database** (or drop all tables, including `alembic_version`).
+2. Ensure your `.env` has a valid `DATABASE_URL`.
+3. Apply the baseline migration:
+
+```
+alembic upgrade head
+```
+
+If you already have a database with the schema created, but Alembic revision history changed (you get a “Can't locate revision” error), you can align the version table without running migrations:
+
+```
+alembic stamp head
+```
+
 1. Create a new migration (after modifying models)
 
 ```
