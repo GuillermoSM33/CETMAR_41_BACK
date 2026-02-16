@@ -24,10 +24,14 @@ app.add_middleware(
 )
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
-# static_path = os.path.join(script_dir, "contents")
+static_path = os.path.join(script_dir, "contents")
+
+# Verificar si la carpeta existe, si no, crearla
+if not os.path.exists(static_path):
+    os.makedirs(static_path)
 
 # Montar la carpeta
-# app.mount("/contents", StaticFiles(directory=static_path), name="contents")
+app.mount("/contents", StaticFiles(directory=static_path), name="contents")
 
 """ Sección de usuarios """
 app.include_router(user_controller.router, tags=["Users"])
