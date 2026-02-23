@@ -28,7 +28,6 @@ def _to_str(v: Any) -> str:
         return str(v)
     return str(v).strip()
 
-
 def _to_phone_int(v: Any) -> int:
     s = _to_str(v)
     if not s:
@@ -40,6 +39,37 @@ def _to_phone_int(v: Any) -> int:
         return int(digits)
     except Exception:
         return 0
+
+def _normalize_gender(value: Any) -> Optional[str]:
+
+    """
+    Normaliza el género a 'H' o 'M'.
+    Acepta: H/M, Hombre/Mujer, Masculino/Femenino, etc.
+    """
+    s = _to_str(value).strip().upper()
+    if not s:
+        return None
+
+    if s in ("H", "M"):
+        return s
+
+    if s.startswith("HOM") or s.startswith("MAS"): 
+        return "H"
+    if s.startswith("MUJ") or s.startswith("FEM"):  
+        return "M"
+
+    return None
+
+def _infer_gender_from_curp(curp: str) -> Optional[str]:
+    """
+    CURP mexicana: el carácter 11 (índice 10) es el sexo:
+    H = Hombre, M = Mujer
+    """
+    c = _to_str(curp).strip().upper()
+    if len(c) < 11:
+        return None
+    sex = c[10]
+    return sex if sex in ("H", "M") else None
 
 def import_students_from_excel(
     db: Session,
@@ -83,6 +113,18 @@ def import_students_from_excel(
         )
 
         curp = row_norm.get("curp")
+
+        gender_excel = (
+            row_norm.get("gender")
+            or row_norm.get("sexo")
+            or row_norm.get("género")
+            or row_norm.get("genero")
+        )
+
+        gender_value = _normalize_gender(gender_excel)
+        if not gender_value and curp:
+            gender_value = _infer_gender_from_curp(curp)
+
         grupo = row_norm.get("grupo")
         carrera = row_norm.get("carrera")
         horario = row_norm.get("horario")
@@ -113,6 +155,7 @@ def import_students_from_excel(
                     Grupo=grupo or None,
                     Schedule=horario or None,
                     Major=carrera or None,
+                    Gender=gender_value or None,
                 )
                 db.add(identity)
                 db.flush()
@@ -121,6 +164,10 @@ def import_students_from_excel(
                 updated_identity = False
 
                 full_name = f"{nombres or ''} {apellido_paterno or ''} {apellido_materno or ''}".strip() or None
+
+                if gender_value and (not getattr(identity, "Gender", None) or identity.Gender.strip() == ""):
+                    identity.Gender = gender_value
+                    updated_identity = True
 
                 if numero_control and identity.Student_Control_Number != numero_control:
                     identity.Student_Control_Number = numero_control
