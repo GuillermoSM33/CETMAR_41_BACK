@@ -40,6 +40,7 @@ class IdentityModel(Base):
 
     IsRegular: Mapped[Optional[bool]] = mapped_column(nullable=True, default=True)
     IsLeave: Mapped[Optional[bool]] = mapped_column(nullable=True, default=False)
+    LeaveStartDate: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     Gender: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
 
     users: Mapped[List["UserModel"]] = relationship("UserModel", back_populates="identity")
