@@ -34,7 +34,11 @@ class ReportCardRepository:
         if filters.search:
             query = query.filter(
                 or_(
-                    IdentityModel.Nombre.ilike(f"%{filters.search}%"),
+                    # Buscamos coincidencias en cualquiera de las partes del nombre
+                    IdentityModel.Full_Name.ilike(f"%{filters.search}%"),
+                    IdentityModel.Midle_Name.ilike(f"%{filters.search}%"),
+                    IdentityModel.Last_Name.ilike(f"%{filters.search}%"),
+                    # Y también buscamos coincidencias en el número de control
                     IdentityModel.Student_Control_Number.ilike(f"%{filters.search}%")
                 )
             )
