@@ -1,12 +1,17 @@
 from sqlalchemy.orm import Session
+from collections import Counter
 from application.dtos.counters.counter_dto import (
     AllCountersDTO,
+    AverageDistributionDTO,
+    LeaveTrendDTO,
     SimpleCounterDTO,
     AverageCounterDTO,
     CareerDistributionDTO,
     CounterByCareerDTO,
     GenderDistributionDTO,
     RegularityDistributionDTO,
+    AverageRangeDTO,
+    TrendPointDTO
 )
 from infrastructure.persistence.repositories.counter_repository import CounterRepository
 
@@ -71,3 +76,33 @@ class CounterService:
     @staticmethod
     def get_registered_users(db: Session) -> SimpleCounterDTO:
         return SimpleCounterDTO(count=CounterRepository.get_registered_users_count(db))
+
+    @staticmethod
+    def get_averages_distribution(db: Session) -> AverageDistributionDTO:
+        data = CounterRepository.get_averages_distribution(db)
+        distribucion = [AverageRangeDTO(**item) for item in data]
+        return AverageDistributionDTO(distribucion=distribucion)
+    
+    from collections import Counter
+# Asegúrate de importar LeaveTrendDTO y TrendPointDTO
+
+    @staticmethod
+    def get_leave_trend(db: Session) -> LeaveTrendDTO:
+        fechas_crudas = CounterRepository.get_leave_dates(db)
+        
+        conteo_meses = Counter()
+        
+        for fecha in fechas_crudas:
+            # Asumiendo que tus fechas están en formato 'YYYY-MM-DD' (ej. 2023-08-14)
+            # Cortamos solo los primeros 7 caracteres para quedarnos con 'YYYY-MM'
+            if len(fecha) >= 7:
+                mes_anio = fecha[:7] 
+                conteo_meses[mes_anio] += 1
+                
+        # Ordenamos las fechas cronológicamente para que la línea de la gráfica tenga sentido
+        puntos = [
+            TrendPointDTO(periodo=periodo, cantidad=cantidad)
+            for periodo, cantidad in sorted(conteo_meses.items())
+        ]
+        
+        return LeaveTrendDTO(tendencia=puntos)
