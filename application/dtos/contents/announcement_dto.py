@@ -2,13 +2,13 @@ from pydantic import BaseModel, model_validator
 from datetime import date
 from typing import Optional
 
-class ContentBaseDTO(BaseModel):
+class AnnouncementBaseDTO(BaseModel):
+    Titule: str  
     Description: str
-    Titule: str
     Type: str
     UrlImage: Optional[str] = None
     UrlDocument: Optional[str] = None
-    IsAnAdvice: bool = False
+    IsAnAdvice: bool = True
     CreationDate: Optional[date] = None
     EndDate: Optional[date] = None
     IsActive: bool = True
@@ -17,16 +17,16 @@ class ContentBaseDTO(BaseModel):
     def check_dates(self):
         if self.CreationDate and self.EndDate:
             if self.EndDate < self.CreationDate:
-                raise ValueError("La fecha de finalización (EndDate) no puede ser anterior a la de creación (CreationDate)")
+                raise ValueError("La fecha de finalización no puede ser anterior a la de creación")
         return self
 
-class CreateContentDTO(ContentBaseDTO):
+class CreateAnnouncementDTO(AnnouncementBaseDTO):
     pass
 
-class UpdateContentDTO(ContentBaseDTO):
+class UpdateAnnouncementDTO(AnnouncementBaseDTO):
     pass
 
-class GetContentDTO(ContentBaseDTO):
+class GetAnnouncementDTO(AnnouncementBaseDTO):
     Id: int
 
     class Config:
