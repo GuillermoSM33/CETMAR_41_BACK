@@ -1,23 +1,49 @@
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
 from fastapi.responses import FileResponse
-from typing import List
+from typing import List, Optional
 from sqlalchemy.orm import Session, joinedload
 import hashlib
 
 from application.dtos.report_cards.report_card_dto import ReportCardDTO
+from application.dtos.report_cards.report_card_filters import ReportCardFilters 
 from application.dtos.report_cards.report_card_response_dto import StoredReportCardDTO, StoredUACItemDTO
 from application.interfaces.report_cards.report_card_parser import IReportCardParser
 from infrastructure.parsers.report_cards.local_report_card_parser import LocalReportCardParser
 from infrastructure.persistence.repositories.db import get_db
 from infrastructure.persistence.models.report_card_model import ReportCardModel
 from application.services.report_card_service import save_parsed_report_cards, get_stored_report_card, get_report
+from application.services.report_card_filters_service import ReportCardService
 import io
 
-router = APIRouter()
+router = APIRouter(prefix="/report-cards", tags=["Report Cards"])
 
 def get_parser() -> IReportCardParser:
     # Inyección simple; en prod podrías cambiar a Azure/otro backend
     return LocalReportCardParser()
+
+@router.get("/")
+def get_report_cards(
+    semestre: Optional[int] = None,
+    grupo: Optional[str] = None,
+    estatus: Optional[str] = None,
+    turno: Optional[str] = None,
+    carrera: Optional[str] = None,
+    periodo: Optional[str] = None,
+    search: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    filters = ReportCardFilters(
+        semestre=semestre,
+        grupo=grupo,
+        estatus=estatus,
+        turno=turno,
+        carrera=carrera,
+        periodo=periodo,
+        search=search,
+    )
+
+    service = ReportCardService(db)
+    return service.get_report_cards(filters)
 
 @router.post("/parse_many", response_model=List[StoredReportCardDTO])
 async def parse_report_card_many(
