@@ -15,7 +15,7 @@ from application.services.report_card_service import save_parsed_report_cards, g
 from application.services.report_card_filters_service import ReportCardService
 import io
 
-router = APIRouter(prefix="/report-cards", tags=["Report Cards"])
+router = APIRouter()
 
 def get_parser() -> IReportCardParser:
     # Inyección simple; en prod podrías cambiar a Azure/otro backend
