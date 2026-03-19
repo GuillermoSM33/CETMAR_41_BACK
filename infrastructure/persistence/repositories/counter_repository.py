@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from sqlalchemy import case
 from infrastructure.persistence.models.identity_model import IdentityModel
 from infrastructure.persistence.models.user_model import UserModel
 from infrastructure.persistence.models.role_model import RoleModel
@@ -71,3 +72,39 @@ class CounterRepository:
             "active_events": CounterRepository.get_active_events_count(db),
             "uploaded_report_cards": CounterRepository.get_uploaded_report_cards_count(db),
         }
+    
+    @staticmethod
+    def get_averages_distribution(db: Session) -> list:
+        # Creamos las "cubetas" (rangos) para los promedios
+        rango_promedio = case(
+            (ReportCardModel.Promedio < 6.0, "Reprobados"),
+            (ReportCardModel.Promedio.between(6.0, 7.0), "6.0-7.0"),
+            (ReportCardModel.Promedio.between(7.1, 8.0), "7.1-8.0"),
+            (ReportCardModel.Promedio.between(8.1, 9.0), "8.1-9.0"),
+            (ReportCardModel.Promedio.between(9.1, 10.0), "9.1-10.0"),
+            else_="Sin Promedio"
+        ).label("rango")
+
+        cte = db.query(
+            ReportCardModel.Id,
+            rango_promedio
+        ).filter(ReportCardModel.Promedio > 0).cte("promedios_cte")
+
+        
+        results = db.query(cte.c.rango, func.count(cte.c.Id))\
+                    .group_by(cte.c.rango)\
+                    .all()
+
+        return [{"rango": r[0], "cantidad": r[1]} for r in results]
+
+
+    @staticmethod
+    def get_leave_dates(db: Session) -> list:
+        # Solo traemos el campo de fecha de los que tienen IsLeave = True y la fecha no es nula
+        fechas = db.query(IdentityModel.LeaveStartDate)\
+                   .filter(IdentityModel.IsLeave == True)\
+                   .filter(IdentityModel.LeaveStartDate.isnot(None))\
+                   .all()
+        
+        # Retornamos una lista simple de strings ['2023-08-15', '2023-08-20', ...]
+        return [f[0] for f in fechas if f[0]]

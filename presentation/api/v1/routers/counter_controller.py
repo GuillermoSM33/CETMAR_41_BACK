@@ -4,6 +4,8 @@ from infrastructure.persistence.repositories.db import get_db
 from application.services.counter_service import CounterService
 from application.dtos.counters.counter_dto import (
     AllCountersDTO,
+    AverageDistributionDTO,
+    LeaveTrendDTO,
     SimpleCounterDTO,
     AverageCounterDTO,
     CareerDistributionDTO,
@@ -56,3 +58,13 @@ def get_active_events(db: Session = Depends(get_db)):
 @router.get("/report-cards/uploaded", response_model=SimpleCounterDTO)
 def get_uploaded_report_cards(db: Session = Depends(get_db)):
     return CounterService.get_uploaded_report_cards(db)
+
+@router.get("/statistics/averages-distribution", response_model=AverageDistributionDTO)
+def get_averages_distribution(db: Session = Depends(get_db)):
+    return CounterService.get_averages_distribution(db)
+
+# Asegúrate de importar LeaveTrendDTO
+
+@router.get("/statistics/leave-trend", response_model=LeaveTrendDTO)
+def get_leave_trend(db: Session = Depends(get_db)):
+    return CounterService.get_leave_trend(db)

@@ -49,3 +49,17 @@ class RegularityDistributionDTO(BaseModel):
     irregular: int
     class Config:
         orm_mode = True
+
+class AverageRangeDTO(BaseModel):
+    rango: str
+    cantidad: int
+
+class AverageDistributionDTO(BaseModel):
+    distribucion: List[AverageRangeDTO]
+
+class TrendPointDTO(BaseModel):
+    periodo: str
+    cantidad: int
+
+class LeaveTrendDTO(BaseModel):
+    tendencia: List[TrendPointDTO]
