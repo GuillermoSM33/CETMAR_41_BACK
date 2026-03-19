@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form
 from sqlalchemy.orm import Session
-from typing import List, Optional
-from datetime import date
+from typing import List, Optional, Union
+from datetime import date, datetime
 from infrastructure.persistence.repositories.db import get_db
 from application.dtos.contents.announcement_dto import GetAnnouncementDTO, CreateAnnouncementDTO, UpdateAnnouncementDTO
 from application.services.announcement_service import (
@@ -12,6 +12,24 @@ from application.services.announcement_service import (
 )
 
 router = APIRouter()
+
+
+def _parse_date(value: Optional[str]) -> Optional[date]:
+    if value is None:
+        return None
+
+    text = value.strip()
+    if not text:
+        return None
+
+    # Aceptamos formatos típicos del front: ISO y dd-mm-yy / dd-mm-yyyy
+    for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%d-%m-%y"):
+        try:
+            return datetime.strptime(text, fmt).date()
+        except ValueError:
+            continue
+
+    raise ValueError("EndDate debe ser una fecha válida (YYYY-MM-DD o DD-MM-YY/DD-MM-YYYY)")
 
 @router.get("", response_model=List[GetAnnouncementDTO])
 def get_announcements(db: Session = Depends(get_db)):
@@ -24,20 +42,34 @@ def create_announcement(
     Type: str = Form(...),
     IsAnAdvice: bool = Form(True),
     EndDate: Optional[str] = Form(None),
-    file: Optional[UploadFile] = File(None), # El archivo es opcional
+    file: Union[UploadFile, str, None] = File(None),  # algunos frontends mandan "" cuando no hay archivo
     db: Session = Depends(get_db)
 ):
     try:
+        # Normalizamos el archivo: si viene como string vacío, lo tratamos como None
+        normalized_file: Optional[UploadFile]
+        if isinstance(file, str):
+            if not file.strip():
+                normalized_file = None
+            else:
+                raise ValueError("El campo 'file' debe enviarse como archivo (multipart), no como texto")
+        else:
+            normalized_file = file
+
+        parsed_end_date = _parse_date(EndDate)
+
         # Reconstruimos el DTO para validar los datos
         data = CreateAnnouncementDTO(
             Titule=Titule,
             Description=Description,
             Type=Type,
             IsAnAdvice=IsAnAdvice,
-            EndDate=EndDate,
+            EndDate=parsed_end_date,
             CreationDate=date.today()
         )
-        return create_announcement_service(db, data, file)
+        return create_announcement_service(db, data, normalized_file)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
